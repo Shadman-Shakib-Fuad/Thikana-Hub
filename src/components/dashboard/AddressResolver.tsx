@@ -23,18 +23,18 @@ import { useAuth } from "@/context/AuthContext";
 
 import { ApiError } from "@/services/api";
 
-import {
-  addressService,
-} from "@/services/address.service";
+import { addressService } from "@/services/address.service";
 
-import type {
-  AddressCandidate,
-  AddressResolutionResponse,
+import AddressFeedback from "./AddressFeedback";
+
+import {
+  getAddressStatusLabel,
+  type AddressCandidate,
+  type AddressResolutionResponse,
 } from "@/types/address";
 
 const MAX_LENGTH = 300;
 
-// Synthetic examples for starter dataset
 const EXAMPLES = [
   "বাসা ১২, Kazipra, মিরপুর, Dhaka",
   "শেওড়াপাড়া, মিরপুর, ঢাকা",
@@ -78,13 +78,16 @@ function CandidateCard({
         <div className="min-w-0 flex-1">
 
           <div className="mb-2 flex flex-wrap gap-2">
+
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
               Rank #{index + 1}
             </span>
 
             <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-              {MATCH_LABELS[candidate.matchType]}
+              {MATCH_LABELS[candidate.matchType] ||
+                candidate.matchType}
             </span>
+
           </div>
 
           <h3 className="break-words text-xl font-bold text-slate-900">
@@ -102,10 +105,12 @@ function CandidateCard({
               "Bangladesh",
             ].filter(Boolean).join(", ")}
           </p>
+
         </div>
 
-        {/* Score */}
+        {/* Ranking Score */}
         <div className="text-right">
+
           <p className="text-3xl font-bold text-emerald-700">
             {score}
             <span className="text-sm text-slate-400">
@@ -116,6 +121,7 @@ function CandidateCard({
           <p className="text-xs text-slate-500">
             Ranking Score
           </p>
+
         </div>
       </div>
 
@@ -138,6 +144,7 @@ function CandidateCard({
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
 
         <div className="rounded-xl bg-slate-50 p-3">
+
           <p className="text-xs text-slate-500">
             Area
           </p>
@@ -145,9 +152,11 @@ function CandidateCard({
           <p className="mt-1 break-words text-sm font-semibold text-slate-800">
             {locality.areaEn || "Not available"}
           </p>
+
         </div>
 
         <div className="rounded-xl bg-slate-50 p-3">
+
           <p className="text-xs text-slate-500">
             District
           </p>
@@ -155,9 +164,11 @@ function CandidateCard({
           <p className="mt-1 break-words text-sm font-semibold text-slate-800">
             {locality.districtEn || "Not available"}
           </p>
+
         </div>
 
         <div className="rounded-xl bg-slate-50 p-3">
+
           <p className="text-xs text-slate-500">
             Division
           </p>
@@ -165,16 +176,20 @@ function CandidateCard({
           <p className="mt-1 break-words text-sm font-semibold text-slate-800">
             {locality.divisionEn || "Not available"}
           </p>
+
         </div>
+
       </div>
 
       {/* Matching Reasons */}
       <div className="mt-5">
+
         <h4 className="mb-3 text-sm font-bold text-slate-700">
           Why this location matched
         </h4>
 
         <div className="flex flex-wrap gap-2">
+
           {candidate.reasons.map((reason, i) => {
             const warning =
               reason.toLowerCase().includes("different");
@@ -198,10 +213,13 @@ function CandidateCard({
               </span>
             );
           })}
+
         </div>
       </div>
 
+      {/* Accuracy Notice */}
       <div className="mt-5 flex items-start gap-2 border-t border-slate-100 pt-4 text-xs leading-relaxed text-slate-500">
+
         <AlertCircle
           size={16}
           className="shrink-0 text-amber-500"
@@ -211,6 +229,7 @@ function CandidateCard({
           This is a suggested locality, not a verified
           building or delivery location.
         </p>
+
       </div>
     </article>
   );
@@ -239,16 +258,19 @@ export default function AddressResolver() {
 
   const pending = useRef(false);
 
+  // Update address input
   function updateAddress(value: string) {
     setAddress(value);
     setResult(null);
     setError("");
   }
 
+  // Clear search
   function resetSearch() {
     updateAddress("");
   }
 
+  // Submit address
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
@@ -261,7 +283,6 @@ export default function AddressResolver() {
 
     const trimmed = address.trim();
 
-    // Frontend input validation
     if (trimmed.length < 3) {
       setError(
         "Please enter a meaningful address."
@@ -277,10 +298,10 @@ export default function AddressResolver() {
     }
 
     pending.current = true;
+
     setLoading(true);
 
     try {
-      // Real authenticated Backend API request
       const response =
         await addressService.resolveAddress({
           address,
@@ -318,9 +339,13 @@ export default function AddressResolver() {
 
       {/* Page Heading */}
       <section>
+
         <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+
           <Sparkles size={15} />
+
           Intelligent Matching Engine
+
         </div>
 
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
@@ -331,6 +356,7 @@ export default function AddressResolver() {
           Find possible localities from incomplete,
           mixed-language or misspelled addresses.
         </p>
+
       </section>
 
       {/* Address Search Form */}
@@ -343,6 +369,7 @@ export default function AddressResolver() {
           </div>
 
           <div>
+
             <h2 className="text-lg font-bold text-slate-900">
               Resolve a new address
             </h2>
@@ -350,10 +377,12 @@ export default function AddressResolver() {
             <p className="text-sm text-slate-500">
               Enter the address as you received it
             </p>
+
           </div>
         </div>
 
         <form onSubmit={handleSubmit}>
+
           <label
             htmlFor="address"
             className="mb-2 block text-sm font-semibold text-slate-700"
@@ -375,20 +404,24 @@ export default function AddressResolver() {
             className="w-full resize-y rounded-2xl border border-slate-300 bg-slate-50 p-4 text-sm leading-relaxed text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 disabled:opacity-60"
           />
 
+          {/* Language and Character Count */}
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
 
             <div className="flex items-center gap-2 text-xs text-slate-500">
+
               <Languages
                 size={16}
                 className="text-emerald-600"
               />
 
               Bangla, English & known Banglish aliases
+
             </div>
 
             <span className="text-xs text-slate-400">
               {address.length}/{MAX_LENGTH}
             </span>
+
           </div>
 
           {/* Sample Addresses */}
@@ -399,17 +432,21 @@ export default function AddressResolver() {
             </p>
 
             <div className="flex flex-wrap gap-2">
+
               {EXAMPLES.map((example) => (
                 <button
                   type="button"
                   key={example}
                   disabled={loading}
-                  onClick={() => updateAddress(example)}
+                  onClick={() =>
+                    updateAddress(example)
+                  }
                   className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50"
                 >
                   {example}
                 </button>
               ))}
+
             </div>
           </div>
 
@@ -419,16 +456,18 @@ export default function AddressResolver() {
               role="alert"
               className="mt-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
             >
+
               <AlertCircle
                 size={20}
                 className="shrink-0"
               />
 
               {error}
+
             </div>
           )}
 
-          {/* Buttons */}
+          {/* Search Buttons */}
           <div className="mt-6 flex flex-wrap gap-3">
 
             <button
@@ -438,6 +477,7 @@ export default function AddressResolver() {
               }
               className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-6 py-3.5 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
             >
+
               {loading ? (
                 <Loader2
                   size={20}
@@ -450,6 +490,7 @@ export default function AddressResolver() {
               {loading
                 ? "Analyzing Address..."
                 : "Resolve Address"}
+
             </button>
 
             <button
@@ -458,10 +499,15 @@ export default function AddressResolver() {
               onClick={resetSearch}
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-5 py-3.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
             >
+
               <RotateCcw size={18} />
+
               Clear
+
             </button>
+
           </div>
+
         </form>
 
         {/* Privacy Notice */}
@@ -479,26 +525,33 @@ export default function AddressResolver() {
             Only submit addresses you are authorized
             to process.
           </p>
+
         </div>
       </section>
 
-      {/* Current Dataset Notice */}
+      {/* Development Dataset Notice */}
       <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
-        <AlertCircle size={19} className="shrink-0" />
+
+        <AlertCircle
+          size={19}
+          className="shrink-0"
+        />
 
         <p>
           Development dataset: Kazipara, Shewrapara
           and Mirpur 10. Nationwide coverage is not
           available yet.
         </p>
+
       </div>
 
-      {/* Live Loading State */}
+      {/* Loading State */}
       {loading && (
         <section
           role="status"
           className="rounded-2xl border border-slate-200 bg-white p-10 text-center"
         >
+
           <Loader2
             size={35}
             className="mx-auto animate-spin text-emerald-600"
@@ -512,6 +565,7 @@ export default function AddressResolver() {
             Checking locality names, aliases and
             spelling similarity...
           </p>
+
         </section>
       )}
 
@@ -531,6 +585,7 @@ export default function AddressResolver() {
             Enter an address to get ranked
             locality suggestions.
           </p>
+
         </section>
       )}
 
@@ -540,9 +595,11 @@ export default function AddressResolver() {
           aria-live="polite"
           className="space-y-5"
         >
+
           <div className="flex flex-wrap items-center justify-between gap-3">
 
             <div>
+
               <h2 className="text-xl font-bold text-slate-900">
                 Matching Results
               </h2>
@@ -551,17 +608,31 @@ export default function AddressResolver() {
                 {result.candidates.length} locality
                 suggestion(s) found
               </p>
+
             </div>
 
-            <span className="rounded-full bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-700">
-              {result.status === "no_confident_match"
-                ? "No confident match"
-                : "Needs review"}
+            {/* Dynamic Status Label */}
+            <span
+              className={`rounded-full px-4 py-2 text-xs font-semibold ${
+                result.status === "confirmed"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-amber-50 text-amber-700"
+              }`}
+            >
+
+              {getAddressStatusLabel(
+                result.status,
+                result.decision
+              )}
+
             </span>
+
           </div>
 
-          {result.ambiguous && (
+          {/* Ambiguous Address Warning */}
+          {result.ambiguous && !result.decision && (
             <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+
               <AlertCircle
                 size={20}
                 className="shrink-0"
@@ -570,10 +641,13 @@ export default function AddressResolver() {
               Multiple possible localities were
               found. Compare the district and area
               before making a decision.
+
             </div>
           )}
 
+          {/* No Match or Candidate Results */}
           {result.candidates.length === 0 ? (
+
             <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
 
               <SearchX
@@ -586,9 +660,11 @@ export default function AddressResolver() {
               </h3>
 
               <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-500">
-                {result.message} Try adding the
-                area or district, correcting the
-                spelling, or using another address.
+
+                {result.decision === "review_requested"
+                  ? "No suggested locality was found. Your manual review request has been recorded."
+                  : `${result.message} Try adding the area or district, correcting the spelling, or requesting manual review.`}
+
               </p>
 
               <button
@@ -598,8 +674,11 @@ export default function AddressResolver() {
               >
                 Try Another Address
               </button>
+
             </div>
+
           ) : (
+
             result.candidates.map(
               (candidate, index) => (
                 <CandidateCard
@@ -609,18 +688,49 @@ export default function AddressResolver() {
                 />
               )
             )
+
           )}
 
+          {/* =================================
+              NEW: CONFIRMATION & FEEDBACK
+          ================================= */}
+
+          <AddressFeedback
+            key={result.jobId}
+            jobId={result.jobId}
+            candidates={result.candidates}
+            status={result.status}
+            decision={result.decision}
+            selectedCandidate={
+              result.selectedCandidate
+            }
+            onUpdated={(response) => {
+              setResult((current) =>
+                current &&
+                current.jobId === response.jobId
+                  ? {
+                      ...current,
+                      ...response,
+                    }
+                  : current
+              );
+            }}
+          />
+
+          {/* Important Information */}
           <div className="rounded-xl bg-slate-100 p-4 text-xs leading-relaxed text-slate-600">
+
             <strong>Important:</strong> Ranking scores
-            are similarity-based scores, not
+            are heuristic matching scores, not
             probabilities of address accuracy.
-            Locality confirmation and reviewer
-            feedback will be available in the
-            next development phase.
+            Merchant confirmation does not independently
+            verify a physical delivery address.
+
           </div>
+
         </section>
       )}
+
     </div>
   );
 }
