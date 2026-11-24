@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
 import {
   Mail,
   UserRound,
@@ -10,43 +12,57 @@ import {
   CheckCircle2,
   Circle,
   AlertCircle,
-  Info,
+  LoaderCircle,
 } from "lucide-react";
 
+import { useAuth } from "@/context/AuthContext";
 import PasswordInput from "./PasswordInput";
 
 interface AuthFormProps {
   mode: "login" | "register";
 }
 
-export default function AuthForm({ mode }: AuthFormProps) {
+export default function AuthForm({
+  mode,
+}: AuthFormProps) {
+
+  const router = useRouter();
+
+  const {
+    login,
+    register,
+    status,
+    isAuthenticated,
+  } = useAuth();
 
   const isRegister = mode === "register";
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [confirmPassword, setConfirmPassword] =
+    useState("");
 
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+  const [registered, setRegistered] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // Basic Password Strength Indicators
   const passwordChecks = [
     {
-      label: "At least 12 characters",
-      passed: password.length >= 12,
+      label: "At least 15 characters",
+      passed: password.length >= 15,
     },
     {
       label: "Uppercase and lowercase letters",
       passed: /[A-Z]/.test(password) && /[a-z]/.test(password),
     },
     {
-      label: "At least one number",
+      label: "Includes a number",
       passed: /[0-9]/.test(password),
     },
     {
-      label: "At least one special character",
+      label: "Includes a special character",
       passed: /[^A-Za-z0-9\s]/.test(password),
     },
   ];
@@ -55,32 +71,26 @@ export default function AuthForm({ mode }: AuthFormProps) {
     (check) => check.passed
   ).length;
 
-  const strengthLabels = [
-    "Very weak",
-    "Weak",
-    "Fair",
-    "Good",
-    "Strong pattern",
-  ];
-
   const strengthColors = [
+    "bg-slate-200",
     "bg-red-500",
     "bg-orange-500",
     "bg-yellow-500",
-    "bg-emerald-400",
     "bg-emerald-600",
   ];
 
-  function clearFeedback() {
-    setError("");
-    setMessage("");
-  }
+  const inputClass =
+    "h-14 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10";
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
 
     event.preventDefault();
 
-    clearFeedback();
+    if (loading || status === "loading") return;
+
+    setError("");
 
     if (isRegister && name.trim().length < 2) {
       setError("Please enter your full name.");
@@ -92,13 +102,8 @@ export default function AuthForm({ mode }: AuthFormProps) {
       return;
     }
 
-    if (!password) {
-      setError("Please enter your password.");
-      return;
-    }
-
-    if (isRegister && password.length < 12) {
-      setError("Password must contain at least 12 characters.");
+    if (isRegister && password.length < 15) {
+      setError("Password must contain at least 15 characters.");
       return;
     }
 
@@ -107,13 +112,106 @@ export default function AuthForm({ mode }: AuthFormProps) {
       return;
     }
 
-    // Backend integration will be implemented in the next phase.
-    setMessage(
-      "Form validation passed. Authentication will be available after backend integration. No account or session has been created."
-    );
+    setLoading(true);
 
-    setPassword("");
-    setConfirmPassword("");
+    try {
+
+      if (isRegister) {
+
+        await register({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+        });
+
+        setPassword("");
+        setConfirmPassword("");
+        setRegistered(true);
+
+      } else {
+
+        await login({
+          email: email.trim(),
+          password,
+        });
+
+        setPassword("");
+
+        router.replace("/dashboard/");
+
+      }
+
+    } catch (error) {
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong. Please try again."
+      );
+
+    } finally {
+
+      setLoading(false);
+
+    }
+  }
+
+  // Already signed in
+  if (isAuthenticated) {
+    return (
+      <div className="space-y-6 text-center">
+
+        <CheckCircle2
+          size={56}
+          className="mx-auto text-emerald-700"
+        />
+
+        <h2 className="text-3xl font-extrabold text-slate-900">
+          You are already signed in
+        </h2>
+
+        <Link
+          href="/dashboard/"
+          className="flex items-center justify-center gap-2 rounded-xl bg-emerald-700 p-4 font-bold text-white"
+        >
+          Open Dashboard
+          <ArrowRight size={19} />
+        </Link>
+
+      </div>
+    );
+  }
+
+  // Registration success
+  if (registered) {
+    return (
+      <div className="space-y-5 text-center">
+
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+
+          <CheckCircle2 size={42} />
+
+        </div>
+
+        <h2 className="text-3xl font-extrabold text-slate-900">
+          Account Created!
+        </h2>
+
+        <p className="leading-7 text-slate-500">
+          Your ThikanaHub merchant account has been
+          successfully created. Sign in to continue.
+        </p>
+
+        <Link
+          href="/login/"
+          className="flex items-center justify-center gap-3 rounded-xl bg-emerald-700 p-4 font-bold text-white transition hover:bg-emerald-800"
+        >
+          Continue to Sign In
+          <ArrowRight size={19} />
+        </Link>
+
+      </div>
+    );
   }
 
   return (
@@ -127,7 +225,9 @@ export default function AuthForm({ mode }: AuthFormProps) {
         </div>
 
         <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">
-          {isRegister ? "Create your account" : "Welcome back"}
+          {isRegister
+            ? "Create your account"
+            : "Welcome back"}
         </h2>
 
         <p className="mt-3 leading-7 text-slate-500">
@@ -138,258 +238,246 @@ export default function AuthForm({ mode }: AuthFormProps) {
 
       </div>
 
-      {/* Authentication Form */}
       <form
-        onSubmit={handleSubmit}
-        onChange={clearFeedback}
         method="post"
-        className="space-y-5"
+        onSubmit={handleSubmit}
+        onChange={() => setError("")}
       >
 
-        {/* Name Field */}
-        {isRegister && (
+        <fieldset
+          disabled={loading || status === "loading"}
+          className="space-y-5 disabled:opacity-70"
+        >
+
+          {/* Full Name */}
+          {isRegister && (
+            <div className="space-y-2">
+
+              <label
+                htmlFor="name"
+                className="text-sm font-semibold text-slate-700"
+              >
+                Full Name
+              </label>
+
+              <div className="relative">
+
+                <UserRound
+                  size={19}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+
+                <input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your full name"
+                  autoComplete="name"
+                  minLength={2}
+                  maxLength={100}
+                  required
+                  className={inputClass}
+                />
+
+              </div>
+
+            </div>
+          )}
+
+          {/* Email */}
           <div className="space-y-2">
 
             <label
-              htmlFor="fullName"
+              htmlFor="email"
               className="text-sm font-semibold text-slate-700"
             >
-              Full Name
+              Email Address
             </label>
 
             <div className="relative">
 
-              <UserRound
+              <Mail
                 size={19}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
               />
 
               <input
-                id="fullName"
-                name="fullName"
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Enter your full name"
-                autoComplete="name"
-                minLength={2}
-                maxLength={100}
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="example@email.com"
+                autoComplete="email"
+                maxLength={254}
                 required
-                className="h-14 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                className={inputClass}
               />
 
             </div>
 
           </div>
-        )}
 
-        {/* Email Field */}
-        <div className="space-y-2">
+          {/* Password */}
+          <PasswordInput
+            id="password"
+            label="Password"
+            value={password}
+            onChange={setPassword}
+            minLength={isRegister ? 15 : undefined}
+            autoComplete={
+              isRegister ? "new-password" : "current-password"
+            }
+          />
 
-          <label
-            htmlFor="email"
-            className="text-sm font-semibold text-slate-700"
-          >
-            Email Address
-          </label>
+          {/* Password Strength */}
+          {isRegister && password.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
 
-          <div className="relative">
+              <p className="mb-3 text-xs font-bold text-slate-600">
+                Password guidelines
+              </p>
 
-            <Mail
-              size={19}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-            />
+              <div className="flex gap-1.5">
 
-            <input
-              id="email"
-              name="email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="example@email.com"
-              autoComplete="email"
-              maxLength={254}
-              required
-              className="h-14 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
-            />
+                {[1, 2, 3, 4].map((level) => (
+                  <div
+                    key={level}
+                    className={`h-1.5 flex-1 rounded-full transition-colors ${
+                      strength >= level
+                        ? strengthColors[strength]
+                        : "bg-slate-200"
+                    }`}
+                  />
+                ))}
 
-          </div>
+              </div>
 
-        </div>
+              <div className="mt-4 space-y-2">
 
-        {/* Password */}
-        <PasswordInput
-          id="password"
-          label="Password"
-          value={password}
-          onChange={setPassword}
-          minLength={isRegister ? 12 : undefined}
-          autoComplete={
-            isRegister ? "new-password" : "current-password"
-          }
-        />
+                {passwordChecks.map((check) => (
+                  <div
+                    key={check.label}
+                    className={`flex items-center gap-2 text-xs ${
+                      check.passed
+                        ? "text-emerald-700"
+                        : "text-slate-500"
+                    }`}
+                  >
 
-        {/* Password Strength */}
-        {isRegister && password.length > 0 && (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    {check.passed
+                      ? <CheckCircle2 size={15} />
+                      : <Circle size={15} />}
 
-            <div className="mb-3 flex items-center justify-between">
+                    {check.label}
 
-              <span className="text-xs font-semibold text-slate-600">
-                Password strength estimate
-              </span>
+                  </div>
+                ))}
 
-              <span className="text-xs font-bold text-slate-700">
-                {strengthLabels[strength]}
-              </span>
+              </div>
 
-            </div>
-
-            <div className="flex gap-1.5">
-
-              {[1, 2, 3, 4].map((level) => (
-                <div
-                  key={level}
-                  className={`h-1.5 flex-1 rounded-full transition-colors ${
-                    strength >= level
-                      ? strengthColors[strength]
-                      : "bg-slate-200"
-                  }`}
-                />
-              ))}
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                Use a long, unique password or passphrase.
+              </p>
 
             </div>
+          )}
 
-            <div className="mt-4 space-y-2">
+          {/* Confirm Password */}
+          {isRegister && (
+            <>
 
-              {passwordChecks.map((check) => (
-                <div
-                  key={check.label}
-                  className={`flex items-center gap-2 text-xs ${
-                    check.passed
-                      ? "text-emerald-700"
-                      : "text-slate-500"
-                  }`}
-                >
+              <PasswordInput
+                id="confirmPassword"
+                label="Confirm Password"
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                placeholder="Re-enter your password"
+                autoComplete="new-password"
+              />
 
-                  {check.passed ? (
-                    <CheckCircle2 size={15} />
-                  ) : (
-                    <Circle size={15} />
-                  )}
-
-                  {check.label}
-
-                </div>
-              ))}
-
-            </div>
-
-            <p className="mt-3 text-xs leading-5 text-slate-500">
-              Use a long, unique password or passphrase.
-              These indicators are guidelines, not a security guarantee.
-            </p>
-
-          </div>
-        )}
-
-        {/* Confirm Password */}
-        {isRegister && (
-          <>
-            <PasswordInput
-              id="confirmPassword"
-              label="Confirm Password"
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-              placeholder="Re-enter your password"
-              autoComplete="new-password"
-            />
-
-            {confirmPassword.length > 0 && (
-              <p
-                className={`flex items-center gap-2 text-xs font-medium ${
+              {confirmPassword && (
+                <p className={`text-xs font-semibold ${
                   password === confirmPassword
                     ? "text-emerald-700"
                     : "text-red-600"
-                }`}
-              >
-                {password === confirmPassword ? (
-                  <>
-                    <CheckCircle2 size={15} />
-                    Passwords match
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle size={15} />
-                    Passwords do not match
-                  </>
-                )}
-              </p>
-            )}
-          </>
-        )}
+                }`}>
+                  {password === confirmPassword
+                    ? "Passwords match"
+                    : "Passwords do not match"}
+                </p>
+              )}
 
-        {/* Account Type Information */}
-        {isRegister && (
-          <div className="flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
 
-            <ShieldCheck
-              size={20}
-              className="shrink-0 text-emerald-700"
-            />
+                <ShieldCheck
+                  size={20}
+                  className="shrink-0 text-emerald-700"
+                />
 
-            <div>
-              <p className="text-sm font-semibold text-emerald-800">
-                Merchant Account
-              </p>
+                <div>
 
-              <p className="mt-1 text-xs leading-5 text-emerald-700">
-                Public registration is intended for merchants.
-                Privileged roles require authorized approval.
-              </p>
+                  <p className="text-sm font-bold text-emerald-800">
+                    Merchant Account
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-emerald-700">
+                    Privileged roles require authorized approval.
+                  </p>
+
+                </div>
+
+              </div>
+
+            </>
+          )}
+
+          {/* API Error */}
+          {error && (
+            <div
+              role="alert"
+              className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+            >
+              <AlertCircle size={19} className="shrink-0" />
+              {error}
             </div>
+          )}
 
-          </div>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <div
-            role="alert"
-            className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={loading || status === "loading"}
+            className="flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-emerald-700 font-bold text-white shadow-lg shadow-emerald-700/20 transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            <AlertCircle size={19} className="shrink-0" />
-            {error}
-          </div>
-        )}
 
-        {/* Information Message */}
-        {message && (
-          <div
-            role="status"
-            className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-700"
-          >
-            <Info size={19} className="shrink-0" />
-            {message}
-          </div>
-        )}
+            {loading || status === "loading" ? (
+              <>
+                <LoaderCircle
+                  size={21}
+                  className="animate-spin"
+                />
 
-        {/* Submit Button */}
-        <button
-          type="submit"
-          className="group flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-emerald-700 font-bold text-white shadow-lg shadow-emerald-700/20 transition hover:bg-emerald-800"
-        >
-          {isRegister ? "Create Account" : "Sign In"}
+                {status === "loading"
+                  ? "Checking session..."
+                  : "Please wait..."}
+              </>
+            ) : (
+              <>
+                {isRegister
+                  ? "Create Account"
+                  : "Sign In"}
 
-          <ArrowRight
-            size={20}
-            className="transition-transform group-hover:translate-x-1"
-          />
-        </button>
+                <ArrowRight size={20} />
+              </>
+            )}
+
+          </button>
+
+        </fieldset>
 
       </form>
 
-      {/* Page Switching */}
+      {/* Login / Registration Switch */}
       <p className="mt-7 text-center text-sm text-slate-500">
 
         {isRegister
@@ -404,15 +492,6 @@ export default function AuthForm({ mode }: AuthFormProps) {
         </Link>
 
       </p>
-
-      {/* Development Notice */}
-      <div className="mt-8 flex items-start justify-center gap-2 border-t border-slate-100 pt-6 text-xs text-slate-400">
-
-        <Info size={15} className="shrink-0" />
-
-        Authentication preview. Use test credentials only.
-
-      </div>
 
     </div>
   );

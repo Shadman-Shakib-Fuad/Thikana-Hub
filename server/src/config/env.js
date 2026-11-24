@@ -29,6 +29,10 @@ const envSchema = z.object({
   AUDIT_MONGODB_URI: mongoUriSchema,
 
   AUDIT_DB_NAME: z.string().min(1),
+
+  ADDRESS_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/i),
 });
 
 const result = envSchema.safeParse(process.env);

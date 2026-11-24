@@ -4,7 +4,7 @@ import { env } from "./env.js";
 const connectionOptions = {
   maxPoolSize: 10,
   minPoolSize: 0,
-  serverSelectionTimeoutMS: 10000,
+  serverSelectionTimeoutMS: 30000,
   connectTimeoutMS: 10000,
 };
 
