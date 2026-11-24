@@ -25,6 +25,7 @@ import {
 import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import addressRoutes from "./routes/address.routes.js";
+import merchantRoutes from "./routes/merchant.routes.js";
 
 const app = express();
 
@@ -157,6 +158,8 @@ app.use(
 // =====================================
 // ERROR HANDLING
 // =====================================
+
+app.use("/api/v1", merchantRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

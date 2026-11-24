@@ -8,6 +8,12 @@ export async function initializeIndexes() {
   const auditDB = getAuditDB();
 
   await Promise.all([
+    mainDB.collection("address_requests").createIndex(
+      { ownerId: 1, _id: -1 },
+      {
+        name: "address_owner_pagination",
+      }
+    ),
     mainDB.collection("users").createIndex(
       { email: 1 },
       {

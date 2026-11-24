@@ -9,7 +9,8 @@
     "start": "node src/index.js",
     "test:matching": "node --test test/matching.test.js",
     "test:encryption": "node --test test/encryption.test.js",
-    "test:address": "node scripts/test-address.js"
+    "test:address": "node scripts/test-address.js",
+    "test:merchant": "node scripts/test-merchant.js"
   },
   "keywords": [],
   "author": "",

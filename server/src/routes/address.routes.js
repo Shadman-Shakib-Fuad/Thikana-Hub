@@ -351,6 +351,11 @@ router.get(
       originalAddress:
         decrypted.originalAddress,
 
+      decision: record.decision || null,
+
+      selectedCandidate:
+        decrypted.selectedCandidate || null,
+
       candidates:
         decrypted.candidates,
 
