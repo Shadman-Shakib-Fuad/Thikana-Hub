@@ -13,7 +13,10 @@
     "test:merchant": "node scripts/test-merchant.js",
     "test:saved": "node scripts/test-saved.js",
     "test:manage": "node scripts/test-manage-address.js",
-    "test:analytics": "node scripts/test-analytics.js"
+    "test:analytics": "node scripts/test-analytics.js",
+    "test:reviewer": "node scripts/test-reviewer.js",
+    "test:review-decision": "node scripts/test-review-decision.js",
+    "test:merchant-review": "node scripts/test-merchant-review.js"
   },
   "keywords": [],
   "author": "",

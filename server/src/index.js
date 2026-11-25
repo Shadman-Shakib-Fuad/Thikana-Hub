@@ -18,6 +18,10 @@ import {
 } from "./config/indexes.js";
 
 import {
+  initializeReviewerIndexes,
+} from "./services/reviewer-admin.service.js";
+
+import {
   notFoundHandler,
   errorHandler,
 } from "./middleware/errorHandler.js";
@@ -34,6 +38,12 @@ import savedRoutes from "./routes/saved.routes.js";
 import manageAddressRoutes from "./routes/manage-address.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
 
+import reviewerRoutes, {
+  initializeReviewerHistoryIndex,
+} from "./routes/reviewer.routes.js";
+
+import merchantReviewRoutes from "./routes/merchant-review.routes.js";
+
 // =====================================
 // EXPRESS APPLICATION
 // =====================================
@@ -43,7 +53,7 @@ const app = express();
 app.disable("x-powered-by");
 
 // =====================================
-// REQUEST ID MIDDLEWARE
+// REQUEST ID
 // =====================================
 
 app.use((req, res, next) => {
@@ -87,6 +97,7 @@ app.use(
     allowedHeaders: [
       "Content-Type",
       "Authorization",
+      "X-Review-Assignment",
     ],
 
     exposedHeaders: [
@@ -105,7 +116,6 @@ const apiLimiter = rateLimit({
   limit: 200,
 
   standardHeaders: true,
-
   legacyHeaders: false,
 
   message: {
@@ -121,7 +131,7 @@ const apiLimiter = rateLimit({
 app.use("/api", apiLimiter);
 
 // =====================================
-// REQUEST BODY & COOKIE PARSING
+// BODY & COOKIE PARSING
 // =====================================
 
 app.use(
@@ -156,54 +166,58 @@ app.get("/", (req, res) => {
 // API ROUTES
 // =====================================
 
-// Health API
 app.use(
   "/api/v1/health",
   healthRoutes
 );
 
-// Authentication API
 app.use(
   "/api/v1/auth",
   authRoutes
 );
 
-// Address Resolution API
 app.use(
   "/api/v1",
   addressRoutes
 );
 
-// Merchant Management API
 app.use(
   "/api/v1",
   merchantRoutes
 );
 
-// Saved Addresses API
 app.use(
   "/api/v1",
   savedRoutes
 );
 
-// Address Edit & Delete API
 app.use(
   "/api/v1",
   manageAddressRoutes
 );
 
-// NEW: Merchant Analytics API
 app.use(
   "/api/v1",
   analyticsRoutes
 );
 
+app.use(
+  "/api/v1",
+  reviewerRoutes
+);
+
+// NEW: Merchant Review Synchronization
+
+app.use(
+  "/api/v1",
+  merchantReviewRoutes
+);
+
 // =====================================
-// ERROR HANDLING
+// CENTRAL ERROR HANDLING
 // =====================================
 
 app.use(notFoundHandler);
-
 app.use(errorHandler);
 
 // =====================================
@@ -236,8 +250,8 @@ function logStartupError(error) {
   }
 
   const servers =
-    error.reason?.servers?.values?.()
-    || [];
+    error.reason?.servers?.values?.() ||
+    [];
 
   for (const server of servers) {
     console.error(
@@ -248,8 +262,7 @@ function logStartupError(error) {
     if (server.error) {
       console.error(
         "Server Error:",
-        server.error.name ||
-        "UnknownError"
+        server.error.name || "UnknownError"
       );
 
       console.error(
@@ -284,6 +297,10 @@ async function startServer() {
     await connectDatabases();
 
     await initializeIndexes();
+
+    await initializeReviewerIndexes();
+
+    await initializeReviewerHistoryIndex();
 
     const server = app.listen(
       env.PORT,
@@ -342,14 +359,22 @@ async function startServer() {
           "[ANALYTICS] Merchant Analytics API ready"
         );
 
+        console.log(
+          "[REVIEWER] Assigned Review API ready"
+        );
+
+        console.log(
+          "[REVIEW-SYNC] Merchant Review API ready"
+        );
+
         console.log("================================");
         console.log("");
       }
     );
 
-    // =====================================
+    // =================================
     // SERVER ERROR HANDLING
-    // =====================================
+    // =================================
 
     server.on("error", async (error) => {
       console.error(
@@ -362,9 +387,9 @@ async function startServer() {
       process.exit(1);
     });
 
-    // =====================================
+    // =================================
     // GRACEFUL SHUTDOWN
-    // =====================================
+    // =================================
 
     let shuttingDown = false;
 
@@ -388,15 +413,8 @@ async function startServer() {
       });
     }
 
-    process.once(
-      "SIGINT",
-      shutdown
-    );
-
-    process.once(
-      "SIGTERM",
-      shutdown
-    );
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
 
   } catch (error) {
     logStartupError(error);
