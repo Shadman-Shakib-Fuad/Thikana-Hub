@@ -17,6 +17,7 @@ import {
   History,
   Bookmark,
   BarChart3,
+  FileText,
   ShieldCheck,
   LogOut,
   Loader2,
@@ -41,7 +42,8 @@ interface DashboardShellProps {
     | "resolve"
     | "history"
     | "saved"
-    | "analytics";
+    | "analytics"
+    | "reports";
 }
 
 const pageTitles = {
@@ -50,6 +52,7 @@ const pageTitles = {
   history: "Search History",
   saved: "Saved Addresses",
   analytics: "Merchant Analytics",
+  reports: "Analytics Reports",
 };
 
 // =====================================
@@ -93,7 +96,6 @@ export default function DashboardShell({
     if (logoutLoading) return;
 
     setLogoutError("");
-
     setLogoutLoading(true);
 
     try {
@@ -169,11 +171,9 @@ export default function DashboardShell({
             onClick={() => void refreshUser()}
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white hover:bg-emerald-800"
           >
-
             <RefreshCw size={18} />
 
             Try Again
-
           </button>
 
         </div>
@@ -193,8 +193,8 @@ export default function DashboardShell({
     .trim()
     .split(/\s+/)
     .slice(0, 2)
-    .map((word) =>
-      word[0]?.toUpperCase()
+    .map(
+      (word) => word[0]?.toUpperCase()
     )
     .join("");
 
@@ -237,6 +237,13 @@ export default function DashboardShell({
       label: "Analytics",
       icon: BarChart3,
     },
+
+    {
+      id: "reports",
+      href: "/dashboard/reports/",
+      label: "Reports",
+      icon: FileText,
+    },
   ] as const;
 
   return (
@@ -256,9 +263,7 @@ export default function DashboardShell({
         >
 
           <div className="rounded-xl bg-emerald-600 p-2.5">
-
             <MapPin size={23} />
-
           </div>
 
           <div>
@@ -292,11 +297,13 @@ export default function DashboardShell({
 
           <Link
             href="/dashboard/"
+
             aria-current={
               active === "overview"
                 ? "page"
                 : undefined
             }
+
             className={navClass(
               active === "overview"
             )}
@@ -317,6 +324,7 @@ export default function DashboardShell({
               return (
                 <Link
                   key={item.id}
+
                   href={item.href}
 
                   aria-current={
@@ -470,7 +478,7 @@ export default function DashboardShell({
               </h2>
 
               <p className="mt-2 text-sm text-amber-800">
-                Address management and analytics
+                Address management, analytics and reports
                 are available to merchant accounts only.
               </p>
 
