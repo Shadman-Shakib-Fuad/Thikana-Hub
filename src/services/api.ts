@@ -3,6 +3,10 @@ const API_URL = (
   "http://localhost:5000/api/v1"
 ).replace(/\/+$/, "");
 
+// =====================================
+// API ERROR CLASS
+// =====================================
+
 export class ApiError extends Error {
   status: number;
   code: string;
@@ -20,7 +24,11 @@ export class ApiError extends Error {
   }
 }
 
-interface ApiOptions {
+// =====================================
+// API OPTIONS
+// =====================================
+
+export interface ApiOptions {
   method?:
     | "GET"
     | "POST"
@@ -29,13 +37,34 @@ interface ApiOptions {
     | "DELETE";
 
   body?: unknown;
+
+  headers?: Record<string, string>;
 }
+
+// =====================================
+// AUTHENTICATED API REQUEST
+// =====================================
 
 export async function apiRequest<T>(
   endpoint: string,
   options: ApiOptions = {}
 ): Promise<T> {
-  const method = options.method || "GET";
+  const headers = new Headers({
+    Accept: "application/json",
+  });
+
+  if (options.body !== undefined) {
+    headers.set(
+      "Content-Type",
+      "application/json"
+    );
+  }
+
+  for (const [key, value] of Object.entries(
+    options.headers ?? {}
+  )) {
+    headers.set(key, value);
+  }
 
   let response: Response;
 
@@ -43,26 +72,21 @@ export async function apiRequest<T>(
     response = await fetch(
       `${API_URL}${endpoint}`,
       {
-        method,
+        method: options.method ?? "GET",
 
         credentials: "include",
 
         cache: "no-store",
 
-        headers: {
-          Accept: "application/json",
-
-          ...(options.body !== undefined
-            ? { "Content-Type": "application/json" }
-            : {}),
-        },
+        headers,
 
         ...(options.body !== undefined
-          ? { body: JSON.stringify(options.body) }
+          ? {
+              body: JSON.stringify(options.body),
+            }
           : {}),
       }
     );
-
   } catch {
     throw new ApiError(
       "Unable to connect to the server. Please check your connection.",
@@ -71,19 +95,20 @@ export async function apiRequest<T>(
     );
   }
 
-  let data: {
-    success?: boolean;
-    code?: string;
-    message?: string;
-  };
+  let data: Record<string, unknown>;
 
   try {
-    data = await response.json();
+    const parsed: unknown = await response.json();
 
-    if (!data || typeof data !== "object") {
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       throw new Error("Invalid response");
     }
 
+    data = parsed as Record<string, unknown>;
   } catch {
     throw new ApiError(
       "The server returned an invalid response.",
@@ -92,7 +117,10 @@ export async function apiRequest<T>(
     );
   }
 
-  if (!response.ok || data.success !== true) {
+  if (
+    !response.ok ||
+    data.success !== true
+  ) {
     throw new ApiError(
       typeof data.message === "string"
         ? data.message

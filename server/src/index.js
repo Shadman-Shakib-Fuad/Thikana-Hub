@@ -3,7 +3,6 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
-
 import { randomUUID } from "node:crypto";
 
 import { env } from "./config/env.js";
@@ -43,6 +42,7 @@ import reviewerRoutes, {
 } from "./routes/reviewer.routes.js";
 
 import merchantReviewRoutes from "./routes/merchant-review.routes.js";
+import reviewerStatisticsRoutes from "./routes/reviewer-statistics.routes.js";
 
 // =====================================
 // EXPRESS APPLICATION
@@ -68,20 +68,14 @@ app.use((req, res, next) => {
 });
 
 // =====================================
-// SECURITY HEADERS
+// SECURITY & CORS
 // =====================================
 
 app.use(helmet());
 
-// =====================================
-// CORS CONFIGURATION
-// =====================================
-
 app.use(
   cors({
-    origin: [
-      env.CLIENT_URL,
-    ],
+    origin: [env.CLIENT_URL],
 
     credentials: true,
 
@@ -112,7 +106,6 @@ app.use(
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-
   limit: 200,
 
   standardHeaders: true,
@@ -120,19 +113,13 @@ const apiLimiter = rateLimit({
 
   message: {
     success: false,
-
     code: "RATE_LIMIT_EXCEEDED",
-
     message:
       "Too many requests. Please try again later.",
   },
 });
 
 app.use("/api", apiLimiter);
-
-// =====================================
-// BODY & COOKIE PARSING
-// =====================================
 
 app.use(
   express.json({
@@ -149,16 +136,10 @@ app.use(cookieParser());
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
-
     service: "ThikanaHub API",
-
     version: "1.0.0",
-
-    message:
-      "ThikanaHub Backend is running.",
-
-    health:
-      "/api/v1/health",
+    message: "ThikanaHub Backend is running.",
+    health: "/api/v1/health",
   });
 });
 
@@ -166,51 +147,22 @@ app.get("/", (req, res) => {
 // API ROUTES
 // =====================================
 
-app.use(
-  "/api/v1/health",
-  healthRoutes
-);
+app.use("/api/v1/health", healthRoutes);
+app.use("/api/v1/auth", authRoutes);
 
-app.use(
-  "/api/v1/auth",
-  authRoutes
-);
+app.use("/api/v1", addressRoutes);
+app.use("/api/v1", merchantRoutes);
+app.use("/api/v1", savedRoutes);
+app.use("/api/v1", manageAddressRoutes);
+app.use("/api/v1", analyticsRoutes);
+app.use("/api/v1", reviewerRoutes);
+app.use("/api/v1", merchantReviewRoutes);
 
-app.use(
-  "/api/v1",
-  addressRoutes
-);
-
-app.use(
-  "/api/v1",
-  merchantRoutes
-);
+// NEW: Reviewer statistics
 
 app.use(
   "/api/v1",
-  savedRoutes
-);
-
-app.use(
-  "/api/v1",
-  manageAddressRoutes
-);
-
-app.use(
-  "/api/v1",
-  analyticsRoutes
-);
-
-app.use(
-  "/api/v1",
-  reviewerRoutes
-);
-
-// NEW: Merchant Review Synchronization
-
-app.use(
-  "/api/v1",
-  merchantReviewRoutes
+  reviewerStatisticsRoutes
 );
 
 // =====================================
@@ -250,8 +202,7 @@ function logStartupError(error) {
   }
 
   const servers =
-    error.reason?.servers?.values?.() ||
-    [];
+    error.reason?.servers?.values?.() || [];
 
   for (const server of servers) {
     console.error(
@@ -295,16 +246,12 @@ async function startServer() {
     );
 
     await connectDatabases();
-
     await initializeIndexes();
-
     await initializeReviewerIndexes();
-
     await initializeReviewerHistoryIndex();
 
     const server = app.listen(
       env.PORT,
-
       "127.0.0.1",
 
       () => {
@@ -327,54 +274,25 @@ async function startServer() {
 
         console.log("");
 
-        console.log(
-          "[AUTH] Authentication API ready"
-        );
+        console.log("[AUTH] Authentication API ready");
+        console.log("[SECURITY] Security middleware active");
+        console.log("[CRYPTO] Encryption service configured");
+        console.log("[ADDRESS] Address Resolution API ready");
+        console.log("[MERCHANT] Merchant Management API ready");
+        console.log("[SAVED] Saved Addresses API ready");
+        console.log("[MANAGE] Address Edit & Delete API ready");
+        console.log("[ANALYTICS] Merchant Analytics API ready");
+        console.log("[REVIEWER] Assigned Review API ready");
+        console.log("[REVIEW-SYNC] Merchant Review API ready");
 
         console.log(
-          "[SECURITY] Security middleware active"
-        );
-
-        console.log(
-          "[CRYPTO] Encryption service configured"
-        );
-
-        console.log(
-          "[ADDRESS] Address Resolution API ready"
-        );
-
-        console.log(
-          "[MERCHANT] Merchant Management API ready"
-        );
-
-        console.log(
-          "[SAVED] Saved Addresses API ready"
-        );
-
-        console.log(
-          "[MANAGE] Address Edit & Delete API ready"
-        );
-
-        console.log(
-          "[ANALYTICS] Merchant Analytics API ready"
-        );
-
-        console.log(
-          "[REVIEWER] Assigned Review API ready"
-        );
-
-        console.log(
-          "[REVIEW-SYNC] Merchant Review API ready"
+          "[REVIEW-STATS] Reviewer Statistics API ready"
         );
 
         console.log("================================");
         console.log("");
       }
     );
-
-    // =================================
-    // SERVER ERROR HANDLING
-    // =================================
 
     server.on("error", async (error) => {
       console.error(
@@ -386,10 +304,6 @@ async function startServer() {
 
       process.exit(1);
     });
-
-    // =================================
-    // GRACEFUL SHUTDOWN
-    // =================================
 
     let shuttingDown = false;
 
@@ -418,9 +332,7 @@ async function startServer() {
 
   } catch (error) {
     logStartupError(error);
-
     await closeDatabases();
-
     process.exit(1);
   }
 }

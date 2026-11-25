@@ -16,7 +16,8 @@
     "test:analytics": "node scripts/test-analytics.js",
     "test:reviewer": "node scripts/test-reviewer.js",
     "test:review-decision": "node scripts/test-review-decision.js",
-    "test:merchant-review": "node scripts/test-merchant-review.js"
+    "test:merchant-review": "node scripts/test-merchant-review.js",
+    "test:reviewer-statistics": "node scripts/test-reviewer-statistics.js"
   },
   "keywords": [],
   "author": "",
