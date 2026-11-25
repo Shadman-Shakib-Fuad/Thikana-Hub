@@ -1,6 +1,7 @@
-const API_URL =
+const API_URL = (
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:5000/api/v1";
+  "http://localhost:5000/api/v1"
+).replace(/\/+$/, "");
 
 export class ApiError extends Error {
   status: number;
@@ -20,7 +21,13 @@ export class ApiError extends Error {
 }
 
 interface ApiOptions {
-  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  method?:
+    | "GET"
+    | "POST"
+    | "PUT"
+    | "PATCH"
+    | "DELETE";
+
   body?: unknown;
 }
 
@@ -28,6 +35,7 @@ export async function apiRequest<T>(
   endpoint: string,
   options: ApiOptions = {}
 ): Promise<T> {
+  const method = options.method || "GET";
 
   let response: Response;
 
@@ -35,7 +43,11 @@ export async function apiRequest<T>(
     response = await fetch(
       `${API_URL}${endpoint}`,
       {
-        method: options.method || "GET",
+        method,
+
+        credentials: "include",
+
+        cache: "no-store",
 
         headers: {
           Accept: "application/json",
@@ -45,17 +57,12 @@ export async function apiRequest<T>(
             : {}),
         },
 
-        credentials: "include",
-
-        cache: "no-store",
-
         ...(options.body !== undefined
-          ? {
-              body: JSON.stringify(options.body),
-            }
+          ? { body: JSON.stringify(options.body) }
           : {}),
       }
     );
+
   } catch {
     throw new ApiError(
       "Unable to connect to the server. Please check your connection.",
@@ -64,21 +71,38 @@ export async function apiRequest<T>(
     );
   }
 
-  const data = await response.json().catch(() => null);
+  let data: {
+    success?: boolean;
+    code?: string;
+    message?: string;
+  };
 
-  if (!response.ok) {
+  try {
+    data = await response.json();
+
+    if (!data || typeof data !== "object") {
+      throw new Error("Invalid response");
+    }
+
+  } catch {
     throw new ApiError(
-      data?.message || "Something went wrong. Please try again.",
+      "The server returned an invalid response.",
       response.status,
-      data?.code || "API_ERROR"
+      "INVALID_RESPONSE"
     );
   }
 
-  if (!data || data.success !== true) {
+  if (!response.ok || data.success !== true) {
     throw new ApiError(
-      "Invalid response received from the server.",
+      typeof data.message === "string"
+        ? data.message
+        : "The request could not be completed.",
+
       response.status,
-      "INVALID_RESPONSE"
+
+      typeof data.code === "string"
+        ? data.code
+        : "API_ERROR"
     );
   }
 

@@ -8,11 +8,12 @@ import {
 
 import {
   CheckCircle2,
-  MessageSquare,
   Clock,
   AlertCircle,
   Loader2,
-  MapPin,
+  Bookmark,
+  BookmarkCheck,
+  MessageSquare,
 } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
@@ -23,20 +24,35 @@ import type {
   AddressCandidate,
   AddressDecision,
   AddressStatus,
-  AddressFeedbackData,
   AddressFeedbackResponse,
+  SaveAddressResponse,
 } from "@/types/address";
 
 interface AddressFeedbackProps {
   jobId: string;
   candidates: AddressCandidate[];
   status: AddressStatus;
+
   decision?: AddressDecision | null;
+
   selectedCandidate?: AddressCandidate | null;
+
+  revision?: number;
+  saved?: boolean;
 
   onUpdated: (
     response: AddressFeedbackResponse
   ) => void;
+
+  onSaved?: (
+    response: SaveAddressResponse
+  ) => void;
+
+  onBusyChange?: (
+    busy: boolean
+  ) => void;
+
+  onConflict?: () => void;
 }
 
 export default function AddressFeedback({
@@ -45,107 +61,178 @@ export default function AddressFeedback({
   status,
   decision,
   selectedCandidate,
+  revision = 0,
+  saved,
   onUpdated,
+  onSaved,
+  onBusyChange,
+  onConflict,
 }: AddressFeedbackProps) {
   const { refreshUser } = useAuth();
 
   const selectionId = useId();
 
-  const [selectedId, setSelectedId] =
-    useState("");
+  const [selectedId, setSelectedId] = useState("");
 
-  const [loading, setLoading] =
-    useState(false);
+  const [localSaved, setLocalSaved] = useState(false);
 
-  const [error, setError] =
-    useState("");
+  const [loading, setLoading] = useState(false);
 
-  const [conflict, setConflict] =
-    useState(false);
+  const [error, setError] = useState("");
+
+  const [conflict, setConflict] = useState(false);
 
   const pending = useRef(false);
 
-  async function submit(
+  const isSaved = saved ?? localSaved;
+
+  async function perform(
+    action: () => Promise<void>
+  ) {
+    if (pending.current || conflict) return;
+
+    pending.current = true;
+
+    setLoading(true);
+    setError("");
+
+    onBusyChange?.(true);
+
+    try {
+      await action();
+
+    } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.status === 401
+      ) {
+        setError("Your session has expired.");
+
+        await refreshUser();
+
+      } else if (
+        error instanceof ApiError &&
+        [0, 404, 409].includes(error.status)
+      ) {
+        setConflict(true);
+
+        setError(
+          "Unable to complete this action safely. Refresh the address details before retrying."
+        );
+
+        onConflict?.();
+
+      } else {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Unable to complete the request."
+        );
+      }
+
+    } finally {
+      pending.current = false;
+
+      setLoading(false);
+
+      onBusyChange?.(false);
+    }
+  }
+
+  async function submitFeedback(
     choice: "confirmed" | "no_correct_match"
   ) {
-    if (pending.current || decision || conflict) {
+    if (
+      pending.current ||
+      decision ||
+      status === "confirmed" ||
+      conflict
+    ) {
       return;
     }
 
-    if (choice === "confirmed" && !selectedId) {
+    if (
+      choice === "confirmed" &&
+      !selectedId
+    ) {
       setError("Please select a locality first.");
       return;
     }
 
     const accepted = window.confirm(
       choice === "confirmed"
-        ? "Confirm this locality? This decision cannot currently be changed."
-        : "Request manual review? This decision cannot currently be changed."
+        ? "Confirm the selected locality?"
+        : "Request manual review? Editing will be locked."
     );
 
     if (!accepted) return;
 
-    setError("");
-    pending.current = true;
-    setLoading(true);
-
-    const payload: AddressFeedbackData =
-      choice === "confirmed"
-        ? {
-            jobId,
-            decision: "confirmed",
-            localityId: selectedId,
-          }
-        : {
-            jobId,
-            decision: "no_correct_match",
-          };
-
-    try {
-      const response =
-        await addressService.submitFeedback(payload);
+    await perform(async () => {
+      const response = await addressService.submitFeedback(
+        choice === "confirmed"
+          ? {
+              jobId,
+              revision,
+              decision: "confirmed",
+              localityId: selectedId,
+            }
+          : {
+              jobId,
+              revision,
+              decision: "no_correct_match",
+            }
+      );
 
       onUpdated(response);
-
-    } catch (error) {
-      if (error instanceof ApiError) {
-        if (error.status === 401) {
-          setError(
-            "Your session has expired. Please sign in again."
-          );
-
-          await refreshUser();
-
-        } else if (error.status === 409) {
-          setConflict(true);
-
-          setError(
-            "This request may already be updated. Reopen it from Search History to check its latest status."
-          );
-
-        } else {
-          setError(error.message);
-        }
-
-      } else {
-        setError(
-          "Unable to submit feedback. Please check Search History before retrying."
-        );
-      }
-
-    } finally {
-      pending.current = false;
-      setLoading(false);
-    }
+    });
   }
 
-  // Confirmed address
+  async function toggleBookmark() {
+    if (status !== "confirmed") return;
+
+    await perform(async () => {
+      const response = await addressService.saveAddress(
+        jobId,
+        {
+          saved: !isSaved,
+          revision,
+        }
+      );
+
+      setLocalSaved(response.saved);
+
+      onSaved?.(response);
+    });
+  }
+
+  const errorMessage = error ? (
+    <div
+      role="alert"
+      className="mt-4 flex items-start gap-2 rounded-xl bg-red-50 p-4 text-sm text-red-700"
+    >
+      <AlertCircle size={18} className="shrink-0" />
+
+      <div>
+        {error}
+
+        {conflict && !onConflict && (
+          <p className="mt-2">
+            Open this address from Search History
+            to retrieve the latest information.
+          </p>
+        )}
+      </div>
+    </div>
+  ) : null;
+
+  // Confirmed address and bookmark controls
   if (
     decision === "confirmed" ||
     status === "confirmed"
   ) {
     return (
       <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 sm:p-6">
+
         <div className="flex items-start gap-3">
           <CheckCircle2
             size={28}
@@ -165,36 +252,65 @@ export default function AddressFeedback({
               </p>
             )}
 
-            <p className="mt-2 text-sm leading-relaxed text-emerald-800">
-              Your selected locality has been saved
-              securely. This is a merchant confirmation,
-              not an independently verified delivery address.
+            <p className="mt-2 text-sm text-emerald-800">
+              Merchant confirmation does not independently
+              verify a physical delivery address.
             </p>
           </div>
         </div>
+
+        {errorMessage}
+
+        <button
+          type="button"
+          disabled={loading || conflict}
+          aria-pressed={isSaved}
+          onClick={() => void toggleBookmark()}
+          className={`mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold disabled:opacity-50 ${
+            isSaved
+              ? "border border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-100"
+              : "bg-emerald-700 text-white hover:bg-emerald-800"
+          }`}
+        >
+          {loading ? (
+            <Loader2 size={18} className="animate-spin" />
+          ) : isSaved ? (
+            <BookmarkCheck size={18} />
+          ) : (
+            <Bookmark size={18} />
+          )}
+
+          {isSaved
+            ? "Saved — Unsave Address"
+            : "Save Address"}
+        </button>
+
+        <p className="mt-3 text-xs text-emerald-800">
+          {isSaved
+            ? "This address is in your Saved Addresses."
+            : "Bookmark this address for future use."}
+        </p>
       </section>
     );
   }
 
-  // Manual review requested
+  // Manual review
   if (decision === "review_requested") {
     return (
-      <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:p-6">
+      <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+
         <div className="flex items-start gap-3">
-          <Clock
-            size={28}
-            className="shrink-0 text-amber-700"
-          />
+          <Clock size={26} className="shrink-0 text-amber-700" />
 
           <div>
             <h3 className="font-bold text-amber-900">
               Manual Review Requested
             </h3>
 
-            <p className="mt-2 text-sm leading-relaxed text-amber-800">
+            <p className="mt-2 text-sm text-amber-800">
               Your feedback has been recorded.
-              Reviewer assignment and manual verification
-              will be available in a future update.
+              Editing and deletion are currently locked.
+              Reviewer assignment is not available yet.
             </p>
           </div>
         </div>
@@ -202,28 +318,20 @@ export default function AddressFeedback({
     );
   }
 
-  // Feedback form
+  // Pending address feedback
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
 
-      <div className="mb-5 flex items-center gap-3">
-        <div className="rounded-xl bg-emerald-50 p-3 text-emerald-700">
-          <MessageSquare size={23} />
-        </div>
+      <h3 className="font-bold text-slate-900">
+        Review Matching Results
+      </h3>
 
-        <div>
-          <h3 className="font-bold text-slate-900">
-            Review Matching Results
-          </h3>
-
-          <p className="text-sm text-slate-500">
-            Confirm a locality or request manual review.
-          </p>
-        </div>
-      </div>
+      <p className="mt-2 text-sm text-slate-500">
+        Confirm a locality or request manual review.
+      </p>
 
       {candidates.length > 0 && (
-        <div>
+        <div className="mt-5">
           <label
             htmlFor={selectionId}
             className="mb-2 block text-sm font-semibold text-slate-700"
@@ -231,71 +339,46 @@ export default function AddressFeedback({
             Select a suggested locality
           </label>
 
-          <div className="flex items-center gap-3 rounded-xl border border-slate-300 bg-slate-50 px-3">
-            <MapPin
-              size={19}
-              className="shrink-0 text-emerald-600"
-            />
+          <select
+            id={selectionId}
+            value={selectedId}
+            disabled={loading || conflict}
+            onChange={(e) => setSelectedId(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm text-slate-800"
+          >
+            <option value="">Choose a locality</option>
 
-            <select
-              id={selectionId}
-              value={selectedId}
-              onChange={(event) =>
-                setSelectedId(event.target.value)
-              }
-              disabled={loading || conflict}
-              className="min-w-0 flex-1 bg-transparent py-3 text-sm text-slate-800 outline-none"
-            >
-              <option value="">
-                Choose a locality
+            {candidates.map((candidate) => (
+              <option
+                key={candidate.localityId}
+                value={candidate.localityId}
+              >
+                {candidate.locality.nameEn}
+                {" — "}
+                {candidate.locality.areaEn}
+                {" — "}
+                {candidate.locality.districtEn}
+                {" — "}
+                {candidate.score}/100
               </option>
-
-              {candidates.map((candidate) => (
-                <option
-                  key={candidate.localityId}
-                  value={candidate.localityId}
-                >
-                  {candidate.locality.nameEn}
-                  {" — "}
-                  {candidate.locality.areaEn}
-                  {" — "}
-                  {candidate.score}/100
-                </option>
-              ))}
-            </select>
-          </div>
+            ))}
+          </select>
         </div>
       )}
 
-      {error && (
-        <div
-          role="alert"
-          className="mt-4 flex items-start gap-2 rounded-xl bg-red-50 p-4 text-sm text-red-700"
-        >
-          <AlertCircle
-            size={19}
-            className="shrink-0"
-          />
-          {error}
-        </div>
-      )}
+      {errorMessage}
 
       <div className="mt-5 flex flex-wrap gap-3">
 
         {candidates.length > 0 && (
           <button
             type="button"
-            disabled={
-              loading || conflict || !selectedId
-            }
-            onClick={() => void submit("confirmed")}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={loading || conflict || !selectedId}
+            onClick={() => void submitFeedback("confirmed")}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
           >
             {loading ? (
-              <Loader2
-                size={18}
-                className="animate-spin"
-              />
+              <Loader2 size={18} className="animate-spin" />
             ) : (
               <CheckCircle2 size={18} />
             )}
@@ -307,20 +390,17 @@ export default function AddressFeedback({
         <button
           type="button"
           disabled={loading || conflict}
-          onClick={() =>
-            void submit("no_correct_match")
-          }
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+          onClick={() => void submitFeedback("no_correct_match")}
+          className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"
         >
           <MessageSquare size={18} />
+
           No Correct Match
         </button>
       </div>
 
-      <p className="mt-4 text-xs leading-relaxed text-slate-500">
-        Please review the area and district carefully.
-        Your decision is stored with the encrypted
-        address request.
+      <p className="mt-4 text-xs text-slate-500">
+        Review the area and district carefully before confirming.
       </p>
     </section>
   );

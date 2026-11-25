@@ -9,6 +9,12 @@ export async function initializeIndexes() {
 
   await Promise.all([
     mainDB.collection("address_requests").createIndex(
+      { ownerId: 1, saved: 1, _id: -1 },
+      {
+        name: "address_saved_pagination",
+      }
+    ),
+    mainDB.collection("address_requests").createIndex(
       { ownerId: 1, _id: -1 },
       {
         name: "address_owner_pagination",

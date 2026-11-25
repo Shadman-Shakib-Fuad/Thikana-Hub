@@ -22,17 +22,27 @@ import {
   errorHandler,
 } from "./middleware/errorHandler.js";
 
+// =====================================
+// ROUTE IMPORTS
+// =====================================
+
 import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import addressRoutes from "./routes/address.routes.js";
 import merchantRoutes from "./routes/merchant.routes.js";
+import savedRoutes from "./routes/saved.routes.js";
+import manageAddressRoutes from "./routes/manage-address.routes.js";
+
+// =====================================
+// EXPRESS APPLICATION
+// =====================================
 
 const app = express();
 
 app.disable("x-powered-by");
 
 // =====================================
-// REQUEST IDENTIFICATION
+// REQUEST ID MIDDLEWARE
 // =====================================
 
 app.use((req, res, next) => {
@@ -58,7 +68,9 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: [env.CLIENT_URL],
+    origin: [
+      env.CLIENT_URL,
+    ],
 
     credentials: true,
 
@@ -83,7 +95,7 @@ app.use(
 );
 
 // =====================================
-// GLOBAL RATE LIMITING
+// GLOBAL API RATE LIMIT
 // =====================================
 
 const apiLimiter = rateLimit({
@@ -97,16 +109,21 @@ const apiLimiter = rateLimit({
 
   message: {
     success: false,
+
     code: "RATE_LIMIT_EXCEEDED",
+
     message:
       "Too many requests. Please try again later.",
   },
 });
 
-app.use("/api", apiLimiter);
+app.use(
+  "/api",
+  apiLimiter
+);
 
 // =====================================
-// REQUEST PARSERS
+// REQUEST BODY & COOKIE PARSING
 // =====================================
 
 app.use(
@@ -122,17 +139,18 @@ app.use(cookieParser());
 // =====================================
 
 app.get("/", (req, res) => {
-  return res.status(200).json({
+  res.status(200).json({
     success: true,
 
-    application: "ThikanaHub",
+    service: "ThikanaHub API",
 
-    description:
-      "Bangla Address Resolution Engine",
+    version: "1.0.0",
 
-    apiVersion: "v1",
+    message:
+      "ThikanaHub Backend is running.",
 
-    status: "running",
+    health:
+      "/api/v1/health",
   });
 });
 
@@ -140,28 +158,48 @@ app.get("/", (req, res) => {
 // API ROUTES
 // =====================================
 
+// Health API
 app.use(
   "/api/v1/health",
   healthRoutes
 );
 
+// Authentication API
 app.use(
   "/api/v1/auth",
   authRoutes
 );
 
+// Address Resolution API
 app.use(
   "/api/v1",
   addressRoutes
+);
+
+// Merchant Management API
+app.use(
+  "/api/v1",
+  merchantRoutes
+);
+
+// Saved Addresses API
+app.use(
+  "/api/v1",
+  savedRoutes
+);
+
+// Address Edit & Delete API
+app.use(
+  "/api/v1",
+  manageAddressRoutes
 );
 
 // =====================================
 // ERROR HANDLING
 // =====================================
 
-app.use("/api/v1", merchantRoutes);
-
 app.use(notFoundHandler);
+
 app.use(errorHandler);
 
 // =====================================
@@ -170,72 +208,62 @@ app.use(errorHandler);
 
 function logStartupError(error) {
   console.error("");
-
   console.error("================================");
-  console.error("     BACKEND STARTUP ERROR");
+  console.error("       STARTUP ERROR");
   console.error("================================");
 
   console.error(
-    "[STARTUP_ERROR]",
+    "Error Name:",
     error.name || "UnknownError"
   );
 
   console.error(
-    "[ERROR_CODE]",
-    error.code || error.cause?.code || "N/A"
+    "Error Code:",
+    error.code ||
+    error.cause?.code ||
+    "N/A"
   );
 
-  console.error(
-    "[DATABASE_TOPOLOGY]",
-    error.reason?.type || "N/A"
-  );
+  if (error.reason?.type) {
+    console.error(
+      "Topology:",
+      error.reason.type
+    );
+  }
 
   const servers =
-    error.reason?.servers?.values?.() || [];
-
-  let serverNumber = 0;
+    error.reason?.servers?.values?.()
+    || [];
 
   for (const server of servers) {
-    serverNumber++;
-
-    console.error(
-      `\n[DATABASE_SERVER_${serverNumber}]`
-    );
-
     console.error(
       "Server Type:",
       server.type || "Unknown"
     );
 
-    console.error(
-      "Server Error:",
-      server.error?.name || "N/A"
-    );
+    if (server.error) {
+      console.error(
+        "Server Error:",
+        server.error.name ||
+        "UnknownError"
+      );
 
-    console.error(
-      "Server Code:",
-      server.error?.code ||
-      server.error?.cause?.code ||
-      "N/A"
-    );
+      console.error(
+        "Server Error Code:",
+        server.error.code ||
+        server.error.cause?.code ||
+        "N/A"
+      );
+    }
   }
 
-  if (error.name === "MongoServerSelectionError") {
-    console.error("");
-
-    console.error(
-      "[SUGGESTION] Check MongoDB Atlas cluster status."
-    );
-
-    console.error(
-      "[SUGGESTION] Check Atlas IP Access List."
-    );
-
-    console.error(
-      "[SUGGESTION] Check network, DNS and TLS connection."
-    );
-  }
-
+  console.error("");
+  console.error("Possible checks:");
+  console.error("- MongoDB Atlas cluster status");
+  console.error("- Network connectivity");
+  console.error("- Atlas IP access list");
+  console.error("- Database credentials");
+  console.error("- DNS or TLS connectivity");
   console.error("================================");
 }
 
@@ -255,7 +283,9 @@ async function startServer() {
 
     const server = app.listen(
       env.PORT,
+
       "127.0.0.1",
+
       () => {
         console.log("");
         console.log("================================");
@@ -292,11 +322,27 @@ async function startServer() {
           "[ADDRESS] Address Resolution API ready"
         );
 
+        console.log(
+          "[MERCHANT] Merchant Management API ready"
+        );
+
+        console.log(
+          "[SAVED] Saved Addresses API ready"
+        );
+
+        console.log(
+          "[MANAGE] Address Edit & Delete API ready"
+        );
+
         console.log("================================");
+        console.log("");
       }
     );
 
-    // Server listening error
+    // =====================================
+    // SERVER ERROR HANDLING
+    // =====================================
+
     server.on("error", async (error) => {
       console.error(
         "[SERVER_ERROR]",
@@ -308,7 +354,10 @@ async function startServer() {
       process.exit(1);
     });
 
-    // Graceful server shutdown
+    // =====================================
+    // GRACEFUL SHUTDOWN
+    // =====================================
+
     let shuttingDown = false;
 
     function shutdown() {
@@ -331,8 +380,15 @@ async function startServer() {
       });
     }
 
-    process.once("SIGINT", shutdown);
-    process.once("SIGTERM", shutdown);
+    process.once(
+      "SIGINT",
+      shutdown
+    );
+
+    process.once(
+      "SIGTERM",
+      shutdown
+    );
 
   } catch (error) {
     logStartupError(error);

@@ -10,7 +10,9 @@
     "test:matching": "node --test test/matching.test.js",
     "test:encryption": "node --test test/encryption.test.js",
     "test:address": "node scripts/test-address.js",
-    "test:merchant": "node scripts/test-merchant.js"
+    "test:merchant": "node scripts/test-merchant.js",
+    "test:saved": "node scripts/test-saved.js",
+    "test:manage": "node scripts/test-manage-address.js"
   },
   "keywords": [],
   "author": "",

@@ -36,7 +36,6 @@ export interface ResolveAddressData {
   address: string;
 }
 
-// Search response
 export interface AddressResolutionResponse {
   success: boolean;
   jobId: string;
@@ -50,49 +49,54 @@ export interface AddressResolutionResponse {
   decision?: AddressDecision | null;
   selectedCandidate?: AddressCandidate | null;
   updatedAt?: string;
+  revision?: number;
+  saved?: boolean;
+  savedAt?: string | null;
 }
 
-// Address details response
 export interface AddressJobResponse {
   success: boolean;
   jobId: string;
-  status: AddressStatus;
   originalAddress: string;
+  status: AddressStatus;
+  decision: AddressDecision | null;
+  selectedCandidate: AddressCandidate | null;
   candidates: AddressCandidate[];
   ambiguous: boolean;
   requiresConfirmation: boolean;
+  revision: number;
+  saved: boolean;
+  savedAt: string | null;
   createdAt: string;
   updatedAt: string;
-
-  decision: AddressDecision | null;
-  selectedCandidate: AddressCandidate | null;
+  message?: string;
 }
 
-// Feedback request
 export type AddressFeedbackData =
   | {
       jobId: string;
+      revision: number;
       decision: "confirmed";
       localityId: string;
     }
   | {
       jobId: string;
+      revision: number;
       decision: "no_correct_match";
     };
 
-// Feedback response
 export interface AddressFeedbackResponse {
   success: boolean;
   jobId: string;
   status: AddressStatus;
   decision: AddressDecision;
+  revision: number;
   selectedCandidate: AddressCandidate | null;
   requiresConfirmation: boolean;
   message: string;
   updatedAt: string;
 }
 
-// Search history item
 export interface AddressHistoryItem {
   jobId: string;
   originalAddress: string;
@@ -101,11 +105,13 @@ export interface AddressHistoryItem {
   candidateCount: number;
   selectedCandidate: AddressCandidate | null;
   requiresConfirmation: boolean;
+  revision: number;
+  saved: boolean;
+  savedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-// Paginated history response
 export interface AddressHistoryResponse {
   success: boolean;
   items: AddressHistoryItem[];
@@ -117,7 +123,36 @@ export interface AddressHistoryResponse {
   };
 }
 
-// Reusable address status label
+export interface SaveAddressData {
+  saved: boolean;
+  revision: number;
+}
+
+export interface SaveAddressResponse {
+  success: boolean;
+  jobId: string;
+  saved: boolean;
+  savedAt: string | null;
+  revision: number;
+  message: string;
+}
+
+export interface EditAddressData {
+  address: string;
+  revision: number;
+}
+
+export interface DeleteAddressData {
+  revision: number;
+}
+
+export interface DeleteAddressResponse {
+  success: boolean;
+  jobId: string;
+  deleted: boolean;
+  message: string;
+}
+
 export function getAddressStatusLabel(
   status: AddressStatus,
   decision?: AddressDecision | null

@@ -28,22 +28,22 @@ import { useAuth } from "@/context/AuthContext";
 
 import { ROLE_LABELS } from "@/types/auth";
 
-// =====================================
-// DASHBOARD SHELL PROPS
-// =====================================
-
 interface DashboardShellProps {
   children: ReactNode;
 
   active:
     | "overview"
     | "resolve"
-    | "history";
+    | "history"
+    | "saved";
 }
 
-// =====================================
-// MAIN DASHBOARD SHELL
-// =====================================
+const pageTitles = {
+  overview: "Overview",
+  resolve: "Address Resolver",
+  history: "Search History",
+  saved: "Saved Addresses",
+};
 
 export default function DashboardShell({
   children,
@@ -64,23 +64,17 @@ export default function DashboardShell({
   const [logoutError, setLogoutError] =
     useState("");
 
-  // =====================================
-  // SESSION PROTECTION
-  // =====================================
-
+  // Session protection
   useEffect(() => {
     if (status === "anonymous") {
       router.replace("/login/");
     }
   }, [status, router]);
 
-  // =====================================
-  // LOGOUT FUNCTION
-  // =====================================
-
   async function handleLogout() {
-    setLogoutError("");
+    if (logoutLoading) return;
 
+    setLogoutError("");
     setLogoutLoading(true);
 
     try {
@@ -92,17 +86,13 @@ export default function DashboardShell({
       setLogoutError(
         error instanceof Error
           ? error.message
-          : "Unable to sign out. Please try again."
+          : "Unable to sign out."
       );
 
     } finally {
       setLogoutLoading(false);
     }
   }
-
-  // =====================================
-  // SESSION LOADING
-  // =====================================
 
   if (
     status === "loading" ||
@@ -112,24 +102,18 @@ export default function DashboardShell({
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
 
         <div className="text-center">
-
           <Loader2
-            className="mx-auto mb-4 animate-spin text-emerald-600"
             size={40}
+            className="mx-auto mb-4 animate-spin text-emerald-600"
           />
 
           <p className="font-semibold text-slate-700">
             Verifying your session...
           </p>
-
         </div>
       </div>
     );
   }
-
-  // =====================================
-  // SESSION OR NETWORK ERROR
-  // =====================================
 
   if (status === "error" || !user) {
     return (
@@ -138,8 +122,8 @@ export default function DashboardShell({
         <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
 
           <AlertCircle
-            className="mx-auto mb-4 text-amber-500"
             size={44}
+            className="mx-auto mb-4 text-amber-500"
           />
 
           <h2 className="text-xl font-bold text-slate-900">
@@ -148,7 +132,6 @@ export default function DashboardShell({
 
           <p className="mt-2 text-sm text-slate-500">
             We could not verify your session.
-            Please check your connection and try again.
           </p>
 
           <button
@@ -156,24 +139,16 @@ export default function DashboardShell({
             onClick={() => void refreshUser()}
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white hover:bg-emerald-800"
           >
-
             <RefreshCw size={18} />
 
             Try Again
-
           </button>
-
         </div>
       </div>
     );
   }
 
-  // =====================================
-  // USER INFORMATION
-  // =====================================
-
-  const isMerchant =
-    user.role === "merchant";
+  const isMerchant = user.role === "merchant";
 
   const initials = user.name
     .trim()
@@ -189,35 +164,43 @@ export default function DashboardShell({
         : "text-slate-300 hover:bg-slate-800 hover:text-white"
     }`;
 
-  const pageTitles = {
-    overview: "Overview",
-    resolve: "Address Resolver",
-    history: "Search History",
-  };
+  const merchantNavigation = [
+    {
+      id: "resolve",
+      href: "/dashboard/resolve/",
+      label: "Resolve Address",
+      icon: ScanSearch,
+    },
+    {
+      id: "history",
+      href: "/dashboard/history/",
+      label: "Search History",
+      icon: History,
+    },
+    {
+      id: "saved",
+      href: "/dashboard/saved/",
+      label: "Saved Addresses",
+      icon: Bookmark,
+    },
+  ] as const;
 
   return (
     <div className="min-h-screen bg-slate-50 lg:flex">
 
-      {/* =================================
-          SIDEBAR
-      ================================= */}
-
+      {/* Sidebar */}
       <aside className="flex w-full flex-col bg-slate-900 text-white lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:shrink-0">
 
-        {/* Brand Logo */}
+        {/* Brand */}
         <Link
           href="/"
           className="flex items-center gap-3 px-6 py-6"
         >
-
           <div className="rounded-xl bg-emerald-600 p-2.5">
-
             <MapPin size={23} />
-
           </div>
 
           <div>
-
             <h1 className="text-xl font-bold">
               ThikanaHub
             </h1>
@@ -225,27 +208,20 @@ export default function DashboardShell({
             <p className="text-xs text-slate-400">
               Secure Address Workspace
             </p>
-
           </div>
-
         </Link>
 
         <div className="mx-5 border-t border-slate-800" />
 
-        {/* =================================
-            NAVIGATION MENU
-        ================================= */}
-
+        {/* Navigation */}
         <nav
           aria-label="Dashboard navigation"
           className="flex flex-wrap gap-2 p-4 lg:flex-col"
         >
-
           <p className="hidden px-4 pb-2 pt-3 text-xs font-semibold tracking-widest text-slate-500 lg:block">
             WORKSPACE
           </p>
 
-          {/* Overview */}
           <Link
             href="/dashboard/"
             aria-current={
@@ -253,107 +229,52 @@ export default function DashboardShell({
                 ? "page"
                 : undefined
             }
-            className={navClass(
-              active === "overview"
-            )}
+            className={navClass(active === "overview")}
           >
-
             <LayoutDashboard size={20} />
-
             Overview
-
           </Link>
 
-          {/* Merchant Navigation */}
-          {isMerchant && (
-            <>
+          {isMerchant && merchantNavigation.map((item) => {
+            const Icon = item.icon;
 
-              {/* Resolve Address */}
+            return (
               <Link
-                href="/dashboard/resolve/"
+                key={item.id}
+                href={item.href}
                 aria-current={
-                  active === "resolve"
+                  active === item.id
                     ? "page"
                     : undefined
                 }
-                className={navClass(
-                  active === "resolve"
-                )}
+                className={navClass(active === item.id)}
               >
+                <Icon size={20} />
 
-                <ScanSearch size={20} />
-
-                Resolve Address
-
+                {item.label}
               </Link>
+            );
+          })}
 
-              {/* NEW: Search History */}
-              <Link
-                href="/dashboard/history/"
-                aria-current={
-                  active === "history"
-                    ? "page"
-                    : undefined
-                }
-                className={navClass(
-                  active === "history"
-                )}
-              >
-
-                <History size={20} />
-
-                Search History
-
-              </Link>
-
-              {/* Upcoming Saved Addresses */}
-              <div className="hidden items-center gap-3 px-4 py-3 text-sm text-slate-500 lg:flex">
-
-                <Bookmark size={20} />
-
-                Saved Addresses
-
-                <span className="ml-auto text-[10px]">
-                  Soon
-                </span>
-
-              </div>
-
-            </>
-          )}
-
-          {/* Homepage */}
           <Link
             href="/"
             className={navClass(false)}
           >
-
             <House size={20} />
-
             Homepage
-
           </Link>
-
         </nav>
 
-        {/* =================================
-            ACCOUNT INFORMATION
-        ================================= */}
-
+        {/* Account */}
         <div className="mt-auto border-t border-slate-800 p-4">
 
           <div className="mb-4 flex items-center gap-3 rounded-xl bg-slate-800 p-3">
 
-            {/* Avatar */}
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-700 font-bold">
-
               {initials}
-
             </div>
 
-            {/* Name and Role */}
             <div className="min-w-0">
-
               <p className="truncate text-sm font-semibold">
                 {user.name}
               </p>
@@ -361,95 +282,66 @@ export default function DashboardShell({
               <p className="text-xs text-slate-400">
                 {ROLE_LABELS[user.role]}
               </p>
-
             </div>
-
           </div>
 
-          {/* Logout Button */}
           <button
             type="button"
-            onClick={handleLogout}
             disabled={logoutLoading}
-            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+            onClick={() => void handleLogout()}
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-300 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
           >
-
             {logoutLoading ? (
-
               <Loader2
                 size={20}
                 className="animate-spin"
               />
-
             ) : (
-
               <LogOut size={20} />
-
             )}
 
             {logoutLoading
               ? "Signing out..."
               : "Sign Out"}
-
           </button>
 
           {logoutError && (
             <p
               role="alert"
-              className="mt-2 break-words text-xs text-red-300"
+              className="mt-2 text-xs text-red-300"
             >
-
               {logoutError}
-
             </p>
           )}
-
         </div>
-
       </aside>
 
-      {/* =================================
-          MAIN CONTENT
-      ================================= */}
-
+      {/* Main content */}
       <div className="min-w-0 flex-1">
 
-        {/* Dashboard Header */}
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4 sm:px-8">
 
           <div>
-
             <p className="text-xs font-medium text-slate-400">
               Workspace / Dashboard
             </p>
 
             <p className="mt-1 text-sm font-semibold text-slate-800">
-
               {pageTitles[active]}
-
             </p>
-
           </div>
 
-          {/* Session Status */}
           <div className="flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-
             <ShieldCheck size={16} />
-
             Authenticated session
-
           </div>
-
         </header>
 
-        {/* Protected Content */}
         <main
-          key={user.id}
+          key={`${user.id}:${active}`}
           className="mx-auto max-w-7xl p-4 sm:p-8"
         >
-
           {active !== "overview" && !isMerchant ? (
-
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
 
               <AlertCircle className="mb-3 text-amber-600" />
@@ -459,31 +351,22 @@ export default function DashboardShell({
               </h2>
 
               <p className="mt-2 text-sm text-amber-800">
-                Address management is available to
-                merchant accounts only.
+                Address management is available
+                to merchant accounts only.
               </p>
 
               <Link
                 href="/dashboard/"
                 className="mt-4 inline-block text-sm font-semibold text-emerald-700"
               >
-
                 Return to overview
-
               </Link>
-
             </div>
-
           ) : (
-
             children
-
           )}
-
         </main>
-
       </div>
-
     </div>
   );
 }

@@ -47,6 +47,7 @@ function requireTrustedOrigin(req, res, next) {
 const feedbackLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 20,
+
   standardHeaders: true,
   legacyHeaders: false,
 
@@ -68,21 +69,34 @@ const objectIdSchema = z
   .string()
   .regex(/^[a-f0-9]{24}$/i);
 
+const revisionSchema = z
+  .number()
+  .int()
+  .min(0)
+  .max(Number.MAX_SAFE_INTEGER)
+  .optional();
+
 const feedbackSchema = z.discriminatedUnion(
   "decision",
   [
     z.object({
       jobId: objectIdSchema,
 
+      revision: revisionSchema,
+
       decision: z.literal("confirmed"),
 
       localityId: z.string().min(1).max(128),
+
     }).strict(),
 
     z.object({
       jobId: objectIdSchema,
 
+      revision: revisionSchema,
+
       decision: z.literal("no_correct_match"),
+
     }).strict(),
   ]
 );
@@ -94,10 +108,11 @@ const historySchema = z.object({
     .optional(),
 
   cursor: objectIdSchema.optional(),
+
 }).strict();
 
 // =====================================
-// ADDRESS FEEDBACK
+// ADDRESS FEEDBACK API
 // =====================================
 
 router.post(
@@ -136,7 +151,10 @@ router.post(
       "address_requests"
     );
 
-    // Find record owned by authenticated user
+    // =====================================
+    // OWNERSHIP VERIFICATION
+    // =====================================
+
     const record = await collection.findOne({
       _id: addressId,
       ownerId,
@@ -158,8 +176,39 @@ router.post(
       });
     }
 
-    // Prevent duplicate or conflicting decisions
-    if (record.decision || record.status === "confirmed") {
+    // =====================================
+    // NEW: REVISION VERIFICATION
+    // =====================================
+
+    const currentRevision =
+      record.revision ?? 0;
+
+    if (
+      (
+        input.revision === undefined &&
+        currentRevision > 0
+      ) ||
+      (
+        input.revision !== undefined &&
+        input.revision !== currentRevision
+      )
+    ) {
+      return res.status(409).json({
+        success: false,
+        code: "REVISION_CONFLICT",
+        message:
+          "The address has changed. Refresh the matching results before submitting feedback.",
+      });
+    }
+
+    // =====================================
+    // DUPLICATE DECISION PROTECTION
+    // =====================================
+
+    if (
+      record.decision ||
+      record.status === "confirmed"
+    ) {
       return res.status(409).json({
         success: false,
         code: "ALREADY_DECIDED",
@@ -167,15 +216,20 @@ router.post(
       });
     }
 
+    // =====================================
+    // DECRYPT PRIVATE ADDRESS DATA
+    // =====================================
+
     const aad = addressAAD(
       record._id,
       record.ownerId
     );
 
-    // Decrypt only after ownership verification
     const decrypted = decryptData(
       record.encryptedPayload,
+
       env.ADDRESS_ENCRYPTION_KEY,
+
       aad
     );
 
@@ -186,7 +240,7 @@ router.post(
     let decision = "review_requested";
 
     // =====================================
-    // CONFIRM A CANDIDATE
+    // CONFIRM A LOCALITY
     // =====================================
 
     if (input.decision === "confirmed") {
@@ -196,7 +250,7 @@ router.post(
             candidate.localityId === input.localityId
         );
 
-      // Do not trust arbitrary candidate IDs
+      // Validate selected candidate
       if (!selectedCandidate) {
         return res.status(400).json({
           success: false,
@@ -233,7 +287,7 @@ router.post(
     }
 
     // =====================================
-    // ENCRYPT UPDATED PRIVATE DATA
+    // RE-ENCRYPT UPDATED ADDRESS DATA
     // =====================================
 
     const now = new Date();
@@ -257,6 +311,10 @@ router.post(
       aad
     );
 
+    // =====================================
+    // AUDIT: STARTED
+    // =====================================
+
     await recordAudit({
       req,
       userId: ownerId,
@@ -265,15 +323,29 @@ router.post(
       result: "started",
     });
 
-    // Atomic conditional update prevents
-    // two simultaneous conflicting decisions
+    // =====================================
+    // ATOMIC DATABASE UPDATE
+    // =====================================
+
     const updated = await collection.updateOne(
       {
         _id: addressId,
 
         ownerId,
 
-        decision: { $exists: false },
+        decision: {
+          $exists: false,
+        },
+
+        // NEW: Revision protection
+        revision:
+          record.revision === undefined
+            ? { $exists: false }
+            : record.revision,
+
+        // NEW: Concurrent update protection
+        "encryptedPayload.iv":
+          record.encryptedPayload.iv,
 
         status: {
           $in: [
@@ -286,12 +358,19 @@ router.post(
       {
         $set: {
           encryptedPayload,
+
           status,
+
           decision,
+
           updatedAt: now,
         },
       }
     );
+
+    // =====================================
+    // UPDATE CONFLICT PROTECTION
+    // =====================================
 
     if (updated.modifiedCount !== 1) {
       await recordAudit({
@@ -310,6 +389,10 @@ router.post(
       });
     }
 
+    // =====================================
+    // AUDIT: SUCCESS
+    // =====================================
+
     await recordAudit({
       req,
       userId: ownerId,
@@ -323,14 +406,20 @@ router.post(
       result: "success",
     });
 
+    // =====================================
+    // RETURN FEEDBACK RESPONSE
+    // =====================================
+
     return res.status(200).json({
       success: true,
 
-      jobId: input.jobId,
+      jobId: addressId.toString(),
 
       status,
 
       decision,
+
+      revision: currentRevision,
 
       selectedCandidate,
 
@@ -347,7 +436,7 @@ router.post(
 );
 
 // =====================================
-// MERCHANT SEARCH HISTORY
+// MERCHANT SEARCH HISTORY API
 // =====================================
 
 router.get(
@@ -358,6 +447,10 @@ router.get(
   requireRole("merchant"),
 
   async (req, res) => {
+    // =====================================
+    // QUERY VALIDATION
+    // =====================================
+
     const parsed = historySchema.safeParse(
       req.query
     );
@@ -376,16 +469,25 @@ router.get(
 
     const ownerId = req.user._id;
 
-    // Users can only retrieve their own records
+    // =====================================
+    // OWNERSHIP FILTER
+    // =====================================
+
     const filter = {
       ownerId,
     };
 
     if (parsed.data.cursor) {
       filter._id = {
-        $lt: new ObjectId(parsed.data.cursor),
+        $lt: new ObjectId(
+          parsed.data.cursor
+        ),
       };
     }
+
+    // =====================================
+    // PAGINATED DATABASE QUERY
+    // =====================================
 
     const records = await getMainDB()
       .collection("address_requests")
@@ -394,11 +496,18 @@ router.get(
       .limit(limit + 1)
       .toArray();
 
-    const hasMore = records.length > limit;
+    const hasMore =
+      records.length > limit;
 
-    const page = records.slice(0, limit);
+    const page = records.slice(
+      0,
+      limit
+    );
 
-    // Decrypt only authorized page records
+    // =====================================
+    // DECRYPT AUTHORIZED ADDRESS RECORDS
+    // =====================================
+
     const items = page.map((record) => {
       const decrypted = decryptData(
         record.encryptedPayload,
@@ -422,6 +531,10 @@ router.get(
         decision:
           record.decision || null,
 
+        // NEW: Address revision
+        revision:
+          record.revision ?? 0,
+
         candidateCount:
           decrypted.candidates.length,
 
@@ -431,11 +544,24 @@ router.get(
         requiresConfirmation:
           decrypted.requiresConfirmation,
 
-        createdAt: record.createdAt,
+        // Saved Address metadata
+        saved:
+          record.saved === true,
 
-        updatedAt: record.updatedAt,
+        savedAt:
+          record.savedAt || null,
+
+        createdAt:
+          record.createdAt,
+
+        updatedAt:
+          record.updatedAt,
       };
     });
+
+    // =====================================
+    // RETURN HISTORY RESPONSE
+    // =====================================
 
     return res.status(200).json({
       success: true,

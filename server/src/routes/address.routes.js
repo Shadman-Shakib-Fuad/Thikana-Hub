@@ -353,6 +353,12 @@ router.get(
 
       decision: record.decision || null,
 
+      revision: record.revision ?? 0,
+
+      saved: record.saved === true,
+
+      savedAt: record.savedAt || null,
+
       selectedCandidate:
         decrypted.selectedCandidate || null,
 
