@@ -17,7 +17,14 @@
     "test:reviewer": "node scripts/test-reviewer.js",
     "test:review-decision": "node scripts/test-review-decision.js",
     "test:merchant-review": "node scripts/test-merchant-review.js",
-    "test:reviewer-statistics": "node scripts/test-reviewer-statistics.js"
+    "test:reviewer-statistics": "node scripts/test-reviewer-statistics.js",
+    "test:data-manager-localities": "node scripts/test-data-manager-localities.js",
+    "test:data-manager-auth": "node scripts/test-data-manager-auth.js",
+    "test:data-manager-terms": "node scripts/test-data-manager-terms.js",
+    "test:data-manager-escalations": "node scripts/test-data-manager-escalations.js",
+    "test:data-manager-handoff": "node scripts/test-data-manager-handoff.js",
+    "test:dataset-approval": "node scripts/test-dataset-approval.js",
+    "test:data-manager-dashboard": "node scripts/test-data-manager-dashboard.js"
   },
   "keywords": [],
   "author": "",

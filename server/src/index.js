@@ -1,3 +1,6 @@
+import datasetApprovalRoutes from "./routes/dataset-approval.routes.js";
+import escalationInvestigationRoutes from "./routes/escalation-investigation.routes.js";
+import dataManagerRoutes from "./routes/data-manager.routes.js";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -164,6 +167,9 @@ app.use(
   "/api/v1",
   reviewerStatisticsRoutes
 );
+app.use("/api/v1", escalationInvestigationRoutes);
+app.use("/api/v1", datasetApprovalRoutes);
+app.use("/api/v1", dataManagerRoutes);
 
 // =====================================
 // CENTRAL ERROR HANDLING

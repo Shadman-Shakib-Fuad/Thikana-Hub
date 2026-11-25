@@ -1,5 +1,6 @@
 "use client";
 
+import ReviewerHandoffContext from "@/components/reviewer/ReviewerHandoffContext";
 import {
   useCallback,
   useEffect,
@@ -787,9 +788,16 @@ function ReviewDetails({
               Merchant Submitted Address
             </h3>
 
-            <p className="mt-3 whitespace-pre-wrap break-words text-lg font-medium leading-relaxed text-slate-900">
+            <>
+    <p className="mt-3 whitespace-pre-wrap break-words text-lg font-medium leading-relaxed text-slate-900">
               {detail.originalAddress}
             </p>
+    <ReviewerHandoffContext
+      jobId={detail?.jobId}
+      assignedAt={detail?.assignedAt}
+      reviewStatus={detail?.reviewStatus}
+    />
+  </>
 
             <p className="mt-3 text-xs text-slate-500">
               Assigned: {formatDate(detail.assignedAt)}

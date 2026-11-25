@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:review-flow": "playwright test tests/reviewer-flow.spec.mjs --workers=1 --retries=0 --reporter=list"
+    "test:review-flow": "playwright test tests/reviewer-flow.spec.mjs --workers=1 --retries=0 --reporter=list",
+    "test:data-manager-flow": "playwright test tests/data-manager-flow.spec.mjs --workers=1 --retries=0 --reporter=list"
   },
   "dependencies": {
     "jspdf": "^4.2.1",

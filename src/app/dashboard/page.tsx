@@ -1,3 +1,4 @@
+import DataManagerEntry from "@/components/data-manager/DataManagerEntry";
 import type { Metadata } from "next";
 
 import Dashboard from "@/components/dashboard/Dashboard";
@@ -15,5 +16,7 @@ export const metadata: Metadata = {
 };
 
 export default function DashboardPage() {
-  return <Dashboard />;
+  return <DataManagerEntry>
+      <Dashboard />
+    </DataManagerEntry>;
 }
