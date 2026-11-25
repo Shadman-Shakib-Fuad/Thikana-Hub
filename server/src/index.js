@@ -32,6 +32,7 @@ import addressRoutes from "./routes/address.routes.js";
 import merchantRoutes from "./routes/merchant.routes.js";
 import savedRoutes from "./routes/saved.routes.js";
 import manageAddressRoutes from "./routes/manage-address.routes.js";
+import analyticsRoutes from "./routes/analytics.routes.js";
 
 // =====================================
 // EXPRESS APPLICATION
@@ -117,10 +118,7 @@ const apiLimiter = rateLimit({
   },
 });
 
-app.use(
-  "/api",
-  apiLimiter
-);
+app.use("/api", apiLimiter);
 
 // =====================================
 // REQUEST BODY & COOKIE PARSING
@@ -192,6 +190,12 @@ app.use(
 app.use(
   "/api/v1",
   manageAddressRoutes
+);
+
+// NEW: Merchant Analytics API
+app.use(
+  "/api/v1",
+  analyticsRoutes
 );
 
 // =====================================
@@ -332,6 +336,10 @@ async function startServer() {
 
         console.log(
           "[MANAGE] Address Edit & Delete API ready"
+        );
+
+        console.log(
+          "[ANALYTICS] Merchant Analytics API ready"
         );
 
         console.log("================================");

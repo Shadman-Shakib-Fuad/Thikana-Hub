@@ -12,7 +12,8 @@
     "test:address": "node scripts/test-address.js",
     "test:merchant": "node scripts/test-merchant.js",
     "test:saved": "node scripts/test-saved.js",
-    "test:manage": "node scripts/test-manage-address.js"
+    "test:manage": "node scripts/test-manage-address.js",
+    "test:analytics": "node scripts/test-analytics.js"
   },
   "keywords": [],
   "author": "",
