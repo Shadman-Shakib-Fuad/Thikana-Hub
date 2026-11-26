@@ -66,11 +66,25 @@ export async function apiRequest<T>(
     headers.set(key, value);
   }
 
+  // Normalize API paths for Vercel same-origin proxy.
+  const suffixIndex = endpoint.search(/[?#]/);
+  const path = suffixIndex === -1
+    ? endpoint
+    : endpoint.slice(0, suffixIndex);
+
+  const suffix = suffixIndex === -1
+    ? ""
+    : endpoint.slice(suffixIndex);
+
+  const requestUrl = API_URL === "/api/v1"
+    ? `${API_URL}${path.replace(/\/+$/, "")}/${suffix}`
+    : `${API_URL}${endpoint}`;
+
   let response: Response;
 
   try {
     response = await fetch(
-      `${API_URL}${endpoint}`,
+      requestUrl,
       {
         method: options.method ?? "GET",
 
