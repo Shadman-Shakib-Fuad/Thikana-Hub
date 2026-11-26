@@ -9,6 +9,8 @@ const prod=env.NODE_ENV==="production";
 // Exactly one hop is supported by this deployment template.
 export function configureProductionSecurity(app){
  if(!prod)return;
+ const mode=process.env.THIKANAHUB_WEB_MODE||"static";
+ if(!["static","api-only"].includes(mode))throw new Error("Invalid THIKANAHUB_WEB_MODE. Use static or api-only.");
  const origin=new URL(env.CLIENT_URL);
  if(origin.protocol!=="https:"||origin.origin!==env.CLIENT_URL||origin.username||origin.password)throw new Error("Production CLIENT_URL must be an exact HTTPS origin.");
  if(process.env.TRUST_PROXY_HOPS!=="1")throw new Error("Production requires an explicitly configured single trusted proxy (TRUST_PROXY_HOPS=1).");
@@ -25,6 +27,10 @@ export function configureProductionSecurity(app){
 }
 export function mountProductionWeb(app){
  if(!prod)return;
+ if(process.env.THIKANAHUB_WEB_MODE==="api-only"){
+  console.log("[PRODUCTION] API-only hosting; frontend served separately.");
+  return;
+ }
  const root=path.resolve(process.env.STATIC_WEB_DIR||"../out");
  if(!fs.existsSync(path.join(root,"index.html")))throw new Error("Production static frontend missing. Build it with NEXT_PUBLIC_API_URL=/api/v1 first.");
  // Static Next export contains inline hydration scripts. Hash the exact trusted
