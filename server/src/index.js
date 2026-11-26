@@ -1,4 +1,7 @@
+import shareRoutes, { initializeShareIndexes } from "./routes/share.routes.js";
+import { mountProductionWeb, configureProductionSecurity } from "./config/production-web.js";
 import datasetApprovalRoutes from "./routes/dataset-approval.routes.js";
+import adminFoundationRoutes from "./routes/admin-foundation.routes.js";
 import escalationInvestigationRoutes from "./routes/escalation-investigation.routes.js";
 import dataManagerRoutes from "./routes/data-manager.routes.js";
 import express from "express";
@@ -75,6 +78,7 @@ app.use((req, res, next) => {
 // =====================================
 
 app.use(helmet());
+configureProductionSecurity(app);
 
 app.use(
   cors({
@@ -136,7 +140,8 @@ app.use(cookieParser());
 // ROOT API
 // =====================================
 
-app.get("/", (req, res) => {
+app.get("/", (req, res, next) => {
+  if (env.NODE_ENV === "production") return next();
   res.status(200).json({
     success: true,
     service: "ThikanaHub API",
@@ -168,8 +173,11 @@ app.use(
   reviewerStatisticsRoutes
 );
 app.use("/api/v1", escalationInvestigationRoutes);
+app.use("/api/v1", adminFoundationRoutes);
 app.use("/api/v1", datasetApprovalRoutes);
 app.use("/api/v1", dataManagerRoutes);
+app.use("/api/v1", shareRoutes);
+mountProductionWeb(app);
 
 // =====================================
 // CENTRAL ERROR HANDLING
@@ -253,12 +261,13 @@ async function startServer() {
 
     await connectDatabases();
     await initializeIndexes();
+    await initializeShareIndexes();
     await initializeReviewerIndexes();
     await initializeReviewerHistoryIndex();
 
     const server = app.listen(
       env.PORT,
-      "127.0.0.1",
+      env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1",
 
       () => {
         console.log("");

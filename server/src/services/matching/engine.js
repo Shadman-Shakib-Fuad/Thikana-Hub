@@ -96,15 +96,14 @@ function bestFuzzyMatch(address, names) {
         continue;
       }
 
-      if (
-        levenshteinDistance(part, phrase) > maxDistance
-      ) {
+      const distance = levenshteinDistance(part, phrase);
+      if (distance > maxDistance) {
         continue;
       }
 
       best = Math.max(
         best,
-        calculateSimilarity(part, phrase)
+        1 - distance / Math.max(Array.from(part).length, length)
       );
     }
   }
@@ -177,15 +176,18 @@ export function resolveAddress(address, localities) {
   const normalized = validation.normalized;
 
   const districtMentioned = localities.some(
-    item => hasExactMatch(
+    item => item.approved !== false && hasExactMatch(
       normalized,
       districtNames(item)
     )
   );
 
+  const divisionMentioned = !districtMentioned && localities.some(item => item.approved !== false && hasExactMatch(normalized, [item.divisionEn, item.divisionBn]));
+
   const candidates = [];
 
   for (const locality of localities) {
+    if (locality.approved === false) continue;
     const evidence = getEvidence(
       normalized,
       locality
@@ -213,6 +215,17 @@ export function resolveAddress(address, localities) {
       reasons.push(
         "Different district from the address"
       );
+    }
+
+    // Division context is weaker than a district and never auto-confirms.
+    if (divisionMentioned) {
+      if (hasExactMatch(normalized, [locality.divisionEn, locality.divisionBn])) {
+        score += 5;
+        reasons.push("Division matched");
+      } else {
+        score -= 10;
+        reasons.push("Different division from the address");
+      }
     }
 
     // Area-based ranking

@@ -311,19 +311,34 @@ router.post(
       getSessionHash(req);
 
     const session =
-      await createSession(user._id);
+      await createSession(user._id, user.securityVersion ?? null, user.role);
 
     try {
       await revokeSession(oldSessionHash);
 
-      await users.updateOne(
-        { _id: user._id },
+      const unchanged = await users.updateOne(
+        {
+          _id: user._id,
+          status: "active",
+          role: user.role,
+          securityVersion: user.securityVersion ?? null,
+          passwordHash: user.passwordHash,
+        },
         {
           $set: {
             lastLoginAt: new Date(),
           },
         }
       );
+
+      if (unchanged.matchedCount !== 1) {
+        await revokeSession(session.tokenHash);
+        return res.status(409).json({
+          success: false,
+          code: "ACCOUNT_CHANGED",
+          message: "Account details changed. Please sign in again.",
+        });
+      }
 
       await recordAudit({
         req,

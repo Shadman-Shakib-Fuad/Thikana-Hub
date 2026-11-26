@@ -32,6 +32,7 @@ import { ApiError } from "@/services/api";
 import { addressService } from "@/services/address.service";
 
 import AddressFeedback from "./AddressFeedback";
+import ShareControls from "@/components/share/ShareControls";
 
 import {
   getAddressStatusLabel,
@@ -567,6 +568,10 @@ function AddressDetails({
                   Update & Re-resolve
                 </button>
               </form>
+            )}
+
+            {!editing && !isBusy && !stale && detail.status === "confirmed" && detail.decision === "confirmed" && (
+              <ShareControls key={`${detail.jobId}:${detail.revision}`} jobId={detail.jobId} revision={detail.revision} />
             )}
 
             {/* Locality candidates */}

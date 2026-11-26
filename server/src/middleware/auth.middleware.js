@@ -91,6 +91,20 @@ export async function requireAuth(
     });
   }
 
+  // A session created before an account security transition cannot
+  // inherit its new permissions, even if the session insert raced it.
+  if (
+    (session.securityVersion ?? null) !== (user.securityVersion ?? null) ||
+    (session.role != null && session.role !== user.role)
+  ) {
+    await revokeSession(tokenHash);
+    return res.status(401).json({
+      success: false,
+      code: "SESSION_EXPIRED",
+      message: "Your session has expired. Please sign in again.",
+    });
+  }
+
   req.user = user;
   req.sessionHash = tokenHash;
 

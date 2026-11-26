@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test:review-flow": "playwright test tests/reviewer-flow.spec.mjs --workers=1 --retries=0 --reporter=list",
-    "test:data-manager-flow": "playwright test tests/data-manager-flow.spec.mjs --workers=1 --retries=0 --reporter=list"
+    "test:data-manager-flow": "playwright test tests/data-manager-flow.spec.mjs --workers=1 --retries=0 --reporter=list",
+    "test:phase10": "node scripts/test-phase10-master.cjs",
+    "test:phase11": "node scripts/test-phase11-master.cjs"
   },
   "dependencies": {
     "jspdf": "^4.2.1",

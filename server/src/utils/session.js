@@ -34,7 +34,7 @@ export function getSessionHash(req) {
   return hashSessionToken(token);
 }
 
-export async function createSession(userId) {
+export async function createSession(userId, securityVersion = null, role = null) {
   const token = randomBytes(32).toString("hex");
   const tokenHash = hashSessionToken(token);
 
@@ -45,6 +45,8 @@ export async function createSession(userId) {
     .insertOne({
       _id: tokenHash,
       userId,
+      securityVersion,
+      role,
 
       createdAt: now,
       lastSeenAt: now,

@@ -24,7 +24,11 @@
     "test:data-manager-escalations": "node scripts/test-data-manager-escalations.js",
     "test:data-manager-handoff": "node scripts/test-data-manager-handoff.js",
     "test:dataset-approval": "node scripts/test-dataset-approval.js",
-    "test:data-manager-dashboard": "node scripts/test-data-manager-dashboard.js"
+    "test:data-manager-dashboard": "node scripts/test-data-manager-dashboard.js",
+    "test:admin-foundation": "node scripts/test-admin-foundation.js",
+    "test:admin-statistics": "node scripts/test-admin-statistics.js",
+    "test:admin-users": "node scripts/test-admin-users.js",
+    "test:admin-role-assignment": "node scripts/test-admin-role-assignment.js"
   },
   "keywords": [],
   "author": "",

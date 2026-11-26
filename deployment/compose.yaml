@@ -1,0 +1,29 @@
+services:
+  app:
+    build:
+      context: ..
+    env_file:
+      - production.env
+    environment:
+      NODE_ENV: production
+      PORT: "5000"
+      TRUST_PROXY_HOPS: "1"
+      STATIC_WEB_DIR: /app/web
+    expose:
+      - "5000"
+    restart: unless-stopped
+  proxy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+volumes:
+  caddy_data:
+  caddy_config:

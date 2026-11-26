@@ -16,7 +16,8 @@ async function run() {
     );
   }
 
-  if (process.env.NODE_ENV !== "development") {
+  const productionBootstrap = process.argv.includes("--production-bootstrap");
+  if (process.env.NODE_ENV !== "development" && !(process.env.NODE_ENV === "production" && productionBootstrap && process.env.ALLOW_ADMIN_BOOTSTRAP === "1")) {
     throw new Error(
       "Development environment required."
     );
@@ -25,7 +26,7 @@ async function run() {
   try {
     await connectDatabases();
 
-    const result = await provisionAdmin(email);
+    const result = await provisionAdmin(email, { productionBootstrap });
 
     console.log(
       "[SUCCESS]",

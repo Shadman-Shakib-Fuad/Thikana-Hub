@@ -78,6 +78,10 @@ export async function apiRequest<T>(
 
         cache: "no-store",
 
+        signal: AbortSignal.timeout(45000),
+
+        redirect: "error",
+
         headers,
 
         ...(options.body !== undefined

@@ -1,0 +1,5 @@
+# Replace thikanahub.example.com with your real domain. DNS must resolve to this host.
+thikanahub.example.com {
+    encode gzip zstd
+    reverse_proxy app:5000
+}

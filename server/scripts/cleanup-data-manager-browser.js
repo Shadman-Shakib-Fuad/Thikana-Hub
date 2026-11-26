@@ -139,6 +139,7 @@ async function run() {
     }
 
     if (users.length) {
+      await db.collection("share_tokens").deleteMany({ ownerId: { $in: users.map(user => user._id) } });
       await db.collection("sessions")
         .deleteMany({
           userId: {

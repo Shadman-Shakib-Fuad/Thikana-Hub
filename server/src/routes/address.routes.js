@@ -32,6 +32,8 @@ import {
   addressAAD,
 } from "../utils/encryption.js";
 
+import { insertMerchantAddress } from "../services/admin-role.service.js";
+
 const router = Router();
 
 const MAX_LOCALITIES = 1000;
@@ -234,21 +236,29 @@ router.post(
     });
 
     // Save encrypted address
-    await db
-      .collection("address_requests")
-      .insertOne({
-        _id: addressId,
+    const saved = await insertMerchantAddress(req.user, {
+      _id: addressId,
+      ownerId,
+      encryptedPayload,
+      status: result.status,
+      createdAt,
+      updatedAt: createdAt,
+    });
 
-        ownerId,
-
-        encryptedPayload,
-
-        status: result.status,
-
-        createdAt,
-
-        updatedAt: createdAt,
+    if (!saved) {
+      await recordAudit({
+        req,
+        userId: ownerId,
+        targetId: addressId,
+        action: "ADDRESS_SEARCH",
+        result: "denied",
       });
+      return res.status(409).json({
+        success: false,
+        code: "ACCOUNT_CHANGED",
+        message: "Your account changed. Please sign in again.",
+      });
+    }
 
     // Record security event
     await recordAudit({

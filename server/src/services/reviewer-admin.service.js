@@ -1,3 +1,4 @@
+import { provisionDedicatedAccount } from "./operator-provision.service.js";
 import { ObjectId } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -80,120 +81,8 @@ export async function initializeReviewerIndexes() {
 
 export async function provisionReviewer(email) {
   const parsed = emailSchema.safeParse(email);
-
-  if (!parsed.success) {
-    throw operatorError(
-      "INVALID_EMAIL",
-      "Enter a valid account email."
-    );
-  }
-
-  const db = getMainDB();
-
-  const users = db.collection("users");
-
-  const sessions = db.collection("sessions");
-
-  const user = await users.findOne({
-    email: parsed.data,
-    role: "merchant",
-    status: "active",
-  });
-
-  if (!user) {
-    throw operatorError(
-      "ACCOUNT_NOT_ELIGIBLE",
-      "A new active merchant account is required."
-    );
-  }
-
-  // Never convert an existing merchant
-  // account that owns address records.
-
-  const existingAddress = await db
-    .collection("address_requests")
-    .findOne(
-      {
-        ownerId: user._id,
-      },
-      {
-        projection: {
-          _id: 1,
-        },
-      }
-    );
-
-  if (existingAddress) {
-    await auditOperator(
-      "REVIEWER_PROVISION",
-      "denied",
-      user._id
-    );
-
-    throw operatorError(
-      "ACCOUNT_HAS_ADDRESSES",
-      "Use a dedicated account with no address records."
-    );
-  }
-
-  await auditOperator(
-    "REVIEWER_PROVISION",
-    "started",
-    user._id
-  );
-
-  // Revoke previous sessions before
-  // changing the account role.
-
-  await sessions.deleteMany({
-    userId: user._id,
-  });
-
-  const updated = await users.updateOne(
-    {
-      _id: user._id,
-      role: "merchant",
-      status: "active",
-    },
-    {
-      $set: {
-        role: "reviewer",
-        updatedAt: new Date(),
-      },
-    }
-  );
-
-  if (updated.modifiedCount !== 1) {
-    await auditOperator(
-      "REVIEWER_PROVISION",
-      "conflict",
-      user._id
-    );
-
-    throw operatorError(
-      "PROVISION_CONFLICT",
-      "The account changed during provisioning."
-    );
-  }
-
-  // Revoke any remaining sessions.
-
-  await sessions.deleteMany({
-    userId: user._id,
-  });
-
-  await auditOperator(
-    "REVIEWER_PROVISION",
-    "success",
-    user._id
-  );
-
-  return {
-    success: true,
-    userId: user._id.toString(),
-    role: "reviewer",
-    message: "Reviewer account provisioned.",
-  };
+  if (!parsed.success) throw operatorError("INVALID_EMAIL", "Enter a valid account email.");
+  return provisionDedicatedAccount(parsed.data,"reviewer","REVIEWER_PROVISION");
 }
 
 // =====================================
@@ -260,51 +149,34 @@ export async function assignReview(
     addressId
   );
 
-  // Atomic assignment prevents duplicate
-  // assignment by concurrent operators.
-
-  const assigned = await db
-    .collection("address_requests")
-    .findOneAndUpdate(
-      {
-        _id: addressId,
-        decision: "review_requested",
-        reviewAssignment: {
-          $exists: false,
-        },
-      },
-      {
-        $set: {
-          reviewAssignment: {
-            reviewerId: reviewer._id,
-            status: "pending",
-            assignedAt: now,
-          },
-
-          updatedAt: now,
-        },
-      },
-      {
-        returnDocument: "after",
-
-        projection: {
-          _id: 1,
-          reviewAssignment: 1,
-        },
+  // Match the Admin API's account write fence: assignment and account
+  // suspension must serialize on the same reviewer document.
+  const session = db.client.startSession();
+  let assigned;
+  try {
+    assigned = await session.withTransaction(async () => {
+      const fence = await db.collection("users").updateOne(
+        { _id: reviewer._id, role: "reviewer", status: "active" },
+        { $set: { reviewerWriteFence: randomUUID() } },
+        { session }
+      );
+      if (!fence.matchedCount) {
+        throw operatorError("REVIEWER_NOT_AVAILABLE", "An active reviewer account is required.");
       }
-    );
-
-  if (!assigned) {
-    await auditOperator(
-      "REVIEW_ASSIGN",
-      "conflict",
-      addressId
-    );
-
-    throw operatorError(
-      "REVIEW_NOT_ASSIGNABLE",
-      "The request is missing, already assigned, or not awaiting manual review."
-    );
+      const record = await db.collection("address_requests").findOneAndUpdate(
+        { _id: addressId, decision: "review_requested", reviewAssignment: { $exists: false } },
+        { $set: { reviewAssignment: { reviewerId: reviewer._id, status: "pending", assignedAt: now }, updatedAt: now } },
+        { session, returnDocument: "after", projection: { _id: 1, reviewAssignment: 1 } }
+      );
+      if (!record) throw operatorError("REVIEW_NOT_ASSIGNABLE", "The request is missing, already assigned, or not awaiting manual review.");
+      return record;
+    }, { readConcern: { level: "snapshot" }, writeConcern: { w: "majority" }, readPreference: "primary", maxCommitTimeMS: 10000 });
+  } catch (error) {
+    try { await auditOperator("REVIEW_ASSIGN", "conflict", addressId); }
+    catch { console.error("[REVIEW_ASSIGN_AUDIT_UNAVAILABLE]"); }
+    throw error;
+  } finally {
+    await session.endSession();
   }
 
   await auditOperator(
