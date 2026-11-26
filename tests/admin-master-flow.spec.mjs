@@ -36,8 +36,101 @@ test("Complete Phase 10 administrator workflow",async({browser})=>{
       await page.goto(`${WEB}/login/`);const form=page.locator("form").filter({has:page.locator('input[type="email"]')});await form.locator('input[type="email"]').fill(a.accounts.admin.email);await form.locator('input[type="password"]').fill(a.accounts.admin.password);await form.locator('button[type="submit"]').click();await expect(page).toHaveURL(/\/dashboard\/admin\/?$/,{timeout:45000});await expect(page.getByRole("heading",{name:"System Overview",exact:true})).toBeVisible();await expect(page.getByText("Total users",{exact:true})).toBeVisible({timeout:45000});adminUser=(await api(admin,"/auth/me")).data.user;
     });
     await step("2/8 User directory and actual browser role assignment",async()=>{
-      await nav("Users");await findUser(b.accounts.merchant.email);const region=page.getByRole("region",{name:"Selected user"});await expect(region.getByLabel("New role")).toBeVisible();await region.getByLabel("New role").selectOption("reviewer");await clickPost(page,`${BASE}/users/${spareUser.id}/role`,region.getByRole("button",{name:"Assign role",exact:true}));await api(spare,"/auth/me",{expected:401});const promoted=await login(spare,b.accounts.merchant);expect(promoted.role).toBe("reviewer");await expect(region.getByText("reviewer",{exact:true})).toBeVisible();
+      await nav("Users");await findUser(b.accounts.merchant.email);const region=page.getByRole("region",{name:"Selected user"});
+      const roleSelect = region.getByLabel("New role");
+      const assignButton = region.getByRole("button", {
+        name: "Assign role",
+        exact: true
+      });
+
+      await expect(roleSelect).toBeVisible();
+      await expect(roleSelect).toHaveValue("");
+      await expect(assignButton).toBeDisabled();
+
+      console.log("[PASS] Explicit role selection required");
+
+      await roleSelect.selectOption("data_manager");
+      await expect(assignButton).toBeEnabled();
+
+      const targetName = await region
+        .locator("p.text-lg.font-bold")
+        .innerText();
+
+      await page.evaluate(() => {
+        window.__originalRoleConfirm = window.confirm;
+        window.__roleConfirmMessage = "";
+
+        window.confirm = message => {
+          window.__roleConfirmMessage = message;
+          return false;
+        };
+      });
+
+      let confirmationMessage;
+
+      try {
+        await assignButton.click();
+      } finally {
+        confirmationMessage = await page.evaluate(() => {
+          const message = window.__roleConfirmMessage;
+
+          window.confirm = window.__originalRoleConfirm;
+
+          delete window.__originalRoleConfirm;
+          delete window.__roleConfirmMessage;
+
+          return message;
+        });
+      }
+
+      expect(confirmationMessage).toBe(
+        "Assign Data Manager role to " +
+        targetName +
+        " (" +
+        b.accounts.merchant.email +
+        ")? Existing sessions will be revoked."
+      );
+
+      const unchanged = await api(spare, "/auth/me");
+      expect(unchanged.data.user.role).toBe("merchant");
+
+      console.log("[PASS] Detailed confirmation message");
+      console.log("[PASS] Cancelled assignment preserves role");
+
+      await findUser(a.accounts.merchant.email);
+
+      await expect(
+        region.getByText(a.accounts.merchant.email, {
+          exact: true
+        })
+      ).toBeVisible();
+
+      await expect(roleSelect).toHaveValue("");
+      await expect(assignButton).toBeDisabled();
+
+      await findUser(b.accounts.merchant.email);
+
+      await expect(
+        region.getByText(b.accounts.merchant.email, {
+          exact: true
+        })
+      ).toBeVisible();
+
+      await expect(roleSelect).toHaveValue("");
+      await expect(assignButton).toBeDisabled();
+
+      console.log("[PASS] Account switching resets role selection");
+
+      await roleSelect.selectOption("reviewer");
+      await expect(assignButton).toBeEnabled();
+
+      console.log("[PASS] Reviewer selection enabled");
+await clickPost(page,`${BASE}/users/${spareUser.id}/role`,region.getByRole("button",{name:"Assign role",exact:true}));await api(spare,"/auth/me",{expected:401});const promoted=await login(spare,b.accounts.merchant);expect(promoted.role).toBe("reviewer");await expect(region.getByText("reviewer",{exact:true})).toBeVisible();
     });
+
+    console.log("[TEST PACING] Waiting for Admin rate-limit window after role safety regression.");
+    await new Promise(r => setTimeout(r, 61000));
+
     await step("3/8 Review metadata, validation and assignment via browser",async()=>{
       jobId=await createReview(merchant,a.marker);const endpoint=`${BASE}/review-queue/${jobId}/assign`;const body={reviewerId:reviewerUser.id,revision:0};
       await api(merchant,endpoint,{method:"POST",body,expected:403});await api(admin,endpoint,{method:"POST",body,origin:"https://untrusted.example.com",expected:403});await api(admin,endpoint,{method:"POST",body:{...body,force:true},expected:400});await api(admin,endpoint,{method:"POST",body:{...body,revision:99},expected:409});await api(admin,endpoint,{method:"POST",body:{...body,reviewerId:merchantUser.id},expected:409});

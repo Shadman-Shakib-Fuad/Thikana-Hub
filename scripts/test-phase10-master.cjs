@@ -1,3 +1,4 @@
+/* eslint @typescript-eslint/no-require-imports: "off" -- Intentional CommonJS test runner. */
 /* Development-only combined build, browser, and regression runner. */
 const fs = require("node:fs");
 const path = require("node:path");
