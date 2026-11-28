@@ -538,9 +538,7 @@ export default function AddressResolver() {
         />
 
         <p>
-          Development dataset: Kazipara, Shewrapara
-          and Mirpur 10. Nationwide coverage is not
-          available yet.
+          Address matching uses the current administrator-approved locality dataset. Coverage is limited to approved localities. Nationwide coverage is not yet available.
         </p>
 
       </div>
