@@ -17,6 +17,7 @@ import {
 } from "../services/audit.service.js";
 
 import { env } from "../config/env.js";
+import { isTrustedOrigin } from "../utils/mobile-auth.js";
 import { assignAdminRole, RoleAssignmentError } from "../services/admin-role.service.js";
 
 const router = Router();
@@ -276,7 +277,7 @@ router.post(
   rejectUnexpectedQuery,
   validateUserId,
   async (req, res) => {
-    if (req.get("Origin") !== env.CLIENT_URL) {
+    if (!isTrustedOrigin(req, env.CLIENT_URL, env.MOBILE_AUTH_ENABLED)) {
       return res.status(403).json({
         success: false, code: "UNTRUSTED_ORIGIN",
         message: "Request origin is not allowed.",

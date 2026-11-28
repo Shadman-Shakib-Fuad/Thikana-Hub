@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 
 import { env } from "../config/env.js";
+import { isTrustedOrigin } from "../utils/mobile-auth.js";
 
 import {
   requireAuth,
@@ -38,7 +39,7 @@ function noCache(req, res, next) {
 }
 
 function trustedOrigin(req, res, next) {
-  if (req.get("Origin") !== env.CLIENT_URL) {
+  if (!isTrustedOrigin(req, env.CLIENT_URL, env.MOBILE_AUTH_ENABLED)) {
     return fail(
       res,
       403,

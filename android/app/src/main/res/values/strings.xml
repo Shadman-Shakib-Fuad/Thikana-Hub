@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ThikanaHub</string>
+    <string name="title_activity_main">ThikanaHub</string>
+    <string name="package_name">com.thikanahub.app</string>
+    <string name="custom_url_scheme">com.thikanahub.app</string>
+</resources>

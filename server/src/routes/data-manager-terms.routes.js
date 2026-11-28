@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 
 import { env } from "../config/env.js";
+import { isTrustedOrigin } from "../utils/mobile-auth.js";
 import { getMainDB } from "../config/database.js";
 import { recordAudit } from "../services/audit.service.js";
 
@@ -118,7 +119,7 @@ function fail(res, status, code, message) {
 }
 
 function trustedOrigin(req, res, next) {
-  if (req.get("Origin") !== env.CLIENT_URL) {
+  if (!isTrustedOrigin(req, env.CLIENT_URL, env.MOBILE_AUTH_ENABLED)) {
     return fail(
       res,
       403,

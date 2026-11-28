@@ -1,10 +1,10 @@
 import {
   randomBytes,
-  createHash,
 } from "node:crypto";
 
 import { env } from "../config/env.js";
 import { getMainDB } from "../config/database.js";
+import { hashTokenForTransport, getRequestSessionHash } from "./mobile-auth.js";
 
 export const SESSION_COOKIE =
   "thikanahub_session";
@@ -16,27 +16,21 @@ export const MAX_SESSION_AGE =
   7 * 24 * 60 * 60 * 1000;
 
 export function hashSessionToken(token) {
-  return createHash("sha256")
-    .update(token)
-    .digest("hex");
+  return hashTokenForTransport(token, "web");
 }
 
 export function getSessionHash(req) {
-  const token = req.cookies?.[SESSION_COOKIE];
-
-  if (
-    typeof token !== "string" ||
-    !/^[a-f0-9]{64}$/.test(token)
-  ) {
-    return null;
-  }
-
-  return hashSessionToken(token);
+  return getRequestSessionHash(
+    req, SESSION_COOKIE, env.CLIENT_URL, env.MOBILE_AUTH_ENABLED
+  );
 }
 
-export async function createSession(userId, securityVersion = null, role = null) {
+export async function createSession(userId, securityVersion = null, role = null, transport = "web") {
+  if (transport === "mobile" && !env.MOBILE_AUTH_ENABLED) {
+    throw new Error("Mobile authentication is disabled.");
+  }
   const token = randomBytes(32).toString("hex");
-  const tokenHash = hashSessionToken(token);
+  const tokenHash = hashTokenForTransport(token, transport);
 
   const now = new Date();
 

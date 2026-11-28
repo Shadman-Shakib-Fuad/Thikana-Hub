@@ -3,6 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import express from "express";
 import { env } from "./env.js";
+import { isTrustedOrigin } from "../utils/mobile-auth.js";
 
 const prod=env.NODE_ENV==="production";
 // The app must be reachable only through a trusted TLS reverse proxy.
@@ -20,7 +21,7 @@ export function configureProductionSecurity(app){
   if(!req.secure&&!(req.method==="GET"&&req.path==="/api/v1/health"))return res.status(400).json({success:false,code:"HTTPS_REQUIRED",message:"HTTPS is required."});
   if(req.path.startsWith("/api/")){
    res.setHeader("Cache-Control","no-store");
-   if(!["GET","HEAD","OPTIONS"].includes(req.method)&&req.get("Origin")!==env.CLIENT_URL)return res.status(403).json({success:false,code:"UNTRUSTED_ORIGIN",message:"Request origin is not allowed."});
+   if(!["GET","HEAD","OPTIONS"].includes(req.method)&&!isTrustedOrigin(req, env.CLIENT_URL, env.MOBILE_AUTH_ENABLED))return res.status(403).json({success:false,code:"UNTRUSTED_ORIGIN",message:"Request origin is not allowed."});
   }
   next();
  });

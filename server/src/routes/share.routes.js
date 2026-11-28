@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createHash, randomBytes } from "node:crypto";
 import rateLimit from "express-rate-limit";
 import { env } from "../config/env.js";
+import { isTrustedOrigin } from "../utils/mobile-auth.js";
 import { getMainDB } from "../config/database.js";
 import { requireAuth, requireRole } from "../middleware/auth.middleware.js";
 import { recordAudit } from "../services/audit.service.js";
@@ -22,7 +23,7 @@ const noStore = (req,res,next) => {res.setHeader("Cache-Control","no-store");res
 const fail = (res,status,code,message) => res.status(status).json({success:false,code,message});
 const invalid = res => fail(res,400,"INVALID_SHARE_REQUEST","Invalid sharing request.");
 const missing = res => fail(res,404,"SHARE_UNAVAILABLE","This shared address is unavailable or has expired.");
-function trusted(req,res,next){if(req.get("Origin")!==env.CLIENT_URL)return fail(res,403,"UNTRUSTED_ORIGIN","Request origin is not allowed.");next();}
+function trusted(req,res,next){if(!isTrustedOrigin(req, env.CLIENT_URL, env.MOBILE_AUTH_ENABLED))return fail(res,403,"UNTRUSTED_ORIGIN","Request origin is not allowed.");next();}
 function noQuery(req,res,next){if(Object.keys(req.query).length)return invalid(res);next();}
 const limiter = rateLimit({windowMs:60000,limit:20,standardHeaders:true,legacyHeaders:false,keyGenerator:req=>String(req.user._id),message:{success:false,code:"SHARE_RATE_LIMIT",message:"Too many sharing requests."}});
 const publicLimiter = rateLimit({windowMs:60000,limit:30,standardHeaders:true,legacyHeaders:false,message:{success:false,code:"SHARE_RATE_LIMIT",message:"Too many sharing requests."}});

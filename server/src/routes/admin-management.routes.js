@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { env } from "../config/env.js";
+import { isTrustedOrigin } from "../utils/mobile-auth.js";
 import { getMainDB, getAuditDB } from "../config/database.js";
 import { adminAccess, rejectUnexpectedQuery } from "../middleware/admin.middleware.js";
 import { recordAudit } from "../services/audit.service.js";
@@ -27,7 +28,7 @@ const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 class AdminError extends Error { constructor(status, code, message) { super(message); this.status = status; this.code = code; } }
 const fail = (status, code, message) => { throw new AdminError(status, code, message); };
 function parse(schema, value) { const result = schema.safeParse(value); if (!result.success) fail(400, "INVALID_INPUT", "Invalid management request."); return result.data; }
-function trusted(req, res, next) { if (req.get("Origin") !== env.CLIENT_URL) return res.status(403).json({success:false,code:"UNTRUSTED_ORIGIN",message:"Request origin is not allowed."}); next(); }
+function trusted(req, res, next) { if (!isTrustedOrigin(req, env.CLIENT_URL, env.MOBILE_AUTH_ENABLED)) return res.status(403).json({success:false,code:"UNTRUSTED_ORIGIN",message:"Request origin is not allowed."}); next(); }
 function handler(fn) { return async (req, res) => { try { return res.json({ success: true, ...await fn(req) }); } catch (error) { if (error instanceof AdminError) return res.status(error.status).json({ success:false, code:error.code, message:error.message }); console.error("[ADMIN_MANAGEMENT_ERROR]", req.requestId, error.name, error.code ?? ""); return res.status(503).json({ success:false, code:"ADMIN_MANAGEMENT_UNAVAILABLE",message:"Operation could not be confirmed. Refresh before retrying." }); } }; }
 async function paged(collection, filter, query, projection, map) {
   const limit = Number(query.limit ?? 20);

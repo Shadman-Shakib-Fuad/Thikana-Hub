@@ -12,6 +12,7 @@ import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
 
 import { env } from "./config/env.js";
+import { getAllowedOrigins, MOBILE_ORIGIN } from "./utils/mobile-auth.js";
 
 import {
   connectDatabases,
@@ -81,10 +82,11 @@ app.use(helmet());
 configureProductionSecurity(app);
 
 app.use(
-  cors({
-    origin: [env.CLIENT_URL],
+  cors((req, callback) => callback(null, {
+    origin: getAllowedOrigins(env.CLIENT_URL, env.MOBILE_AUTH_ENABLED),
 
-    credentials: true,
+    // Browser cookies are never needed by the mobile transport.
+    credentials: !(env.MOBILE_AUTH_ENABLED && req.get("Origin") === MOBILE_ORIGIN),
 
     methods: [
       "GET",
@@ -104,7 +106,7 @@ app.use(
     exposedHeaders: [
       "X-Request-ID",
     ],
-  })
+  }))
 );
 
 // =====================================

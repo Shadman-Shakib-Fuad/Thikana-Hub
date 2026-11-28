@@ -22,6 +22,10 @@ const envSchema = z.object({
 
   CLIENT_URL: z.string().url(),
 
+  MOBILE_AUTH_ENABLED: z.enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+
   MONGODB_URI: mongoUriSchema,
 
   MONGODB_DB_NAME: z.string().min(1),
@@ -73,6 +77,12 @@ if (
     "[CONFIG] Database connection strings must be separate."
   );
 
+  process.exit(1);
+}
+
+if (result.data.MOBILE_AUTH_ENABLED &&
+    new URL(result.data.CLIENT_URL).origin === "https://localhost") {
+  console.error("[CONFIG] Mobile and website origins must be distinct.");
   process.exit(1);
 }
 

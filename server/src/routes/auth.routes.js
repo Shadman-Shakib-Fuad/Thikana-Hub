@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import { createHash } from "node:crypto";
 
 import { env } from "../config/env.js";
+import { isTrustedOrigin, isMobileRequest } from "../utils/mobile-auth.js";
 import { getMainDB } from "../config/database.js";
 
 import {
@@ -39,12 +40,12 @@ router.use((req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
 
   // Restrict state-changing requests
-  // to our trusted browser origin.
+  // to our trusted website or enabled, cookieless mobile origin.
 
   if (
     req.method !== "GET" &&
     req.method !== "HEAD" &&
-    req.get("Origin") !== env.CLIENT_URL
+    !isTrustedOrigin(req, env.CLIENT_URL, env.MOBILE_AUTH_ENABLED)
   ) {
     return res.status(403).json({
       success: false,
@@ -307,11 +308,13 @@ router.post(
       });
     }
 
-    const oldSessionHash =
-      getSessionHash(req);
+    const mobile = isMobileRequest(req, env.MOBILE_AUTH_ENABLED);
+    const oldSessionHash = getSessionHash(req);
 
-    const session =
-      await createSession(user._id, user.securityVersion ?? null, user.role);
+    const session = await createSession(
+      user._id, user.securityVersion ?? null, user.role,
+      mobile ? "mobile" : "web"
+    );
 
     try {
       await revokeSession(oldSessionHash);
@@ -351,15 +354,15 @@ router.post(
       throw error;
     }
 
-    setSessionCookie(
-      res,
-      session.token
-    );
+    if (!mobile) {
+      setSessionCookie(res, session.token);
+    }
 
     return res.status(200).json({
       success: true,
       message: "Signed in successfully.",
       user: publicUser(user),
+      ...(mobile ? { sessionToken: session.token } : {}),
     });
   }
 );
@@ -408,7 +411,9 @@ router.post(
     const session =
       await revokeSession(tokenHash);
 
-    clearSessionCookie(res);
+    if (!isMobileRequest(req, env.MOBILE_AUTH_ENABLED)) {
+      clearSessionCookie(res);
+    }
 
     if (session) {
       await recordAudit({
