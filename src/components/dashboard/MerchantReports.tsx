@@ -1,4 +1,5 @@
 "use client";
+import BrandLogo from "@/components/branding/BrandLogo";
 
 import {
   useEffect,
@@ -194,7 +195,8 @@ function ReportPreview({
         <div className="flex items-center justify-between gap-3">
 
           <div>
-            <p className="text-2xl font-bold">
+            <p className="flex items-center gap-2 text-2xl font-bold">
+              <BrandLogo variant="icon" decorative />
               ThikanaHub
             </p>
 

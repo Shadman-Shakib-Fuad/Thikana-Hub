@@ -1,10 +1,10 @@
 "use client";
+import BrandLogo from "@/components/branding/BrandLogo";
 
 import { useState } from "react";
 import Link from "next/link";
 
 import {
-  MapPin,
   Menu,
   X,
   ArrowRight,
@@ -51,20 +51,11 @@ export default function Navbar() {
           className="flex items-center gap-3"
         >
 
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-700 text-white shadow-lg shadow-emerald-200">
-            <MapPin size={25} />
-          </div>
-
-          <div>
-
-            <p className="text-2xl font-extrabold tracking-tight text-slate-900">
-              Thikana<span className="text-emerald-700">Hub</span>
-            </p>
-
+          <div className="flex flex-col items-start">
+            <BrandLogo variant="full" priority />
             <p className="text-[9px] font-semibold tracking-widest text-slate-500">
               INTELLIGENT ADDRESS PLATFORM
             </p>
-
           </div>
 
         </Link>

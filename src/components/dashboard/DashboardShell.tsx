@@ -1,4 +1,5 @@
 "use client";
+import BrandLogo from "@/components/branding/BrandLogo";
 
 import Link from "next/link";
 
@@ -11,7 +12,6 @@ import {
 import { useRouter } from "next/navigation";
 
 import {
-  MapPin,
   LayoutDashboard,
   ScanSearch,
   History,
@@ -298,9 +298,7 @@ export default function DashboardShell({
           href="/"
           className="flex items-center gap-3 px-6 py-6"
         >
-          <div className="rounded-xl bg-emerald-600 p-2.5">
-            <MapPin size={23} />
-          </div>
+          <BrandLogo variant="icon" decorative />
 
           <div>
             <h1 className="text-xl font-bold">

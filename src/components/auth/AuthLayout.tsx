@@ -1,7 +1,7 @@
+import BrandLogo from "@/components/branding/BrandLogo";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import {
-  MapPin,
   ShieldCheck,
   Languages,
   ScanSearch,
@@ -53,9 +53,7 @@ export default function AuthLayout({
         {/* Logo */}
         <Link href="/" className="relative flex items-center gap-3">
 
-          <div className="rounded-2xl bg-emerald-600 p-3">
-            <MapPin size={30} />
-          </div>
+          <BrandLogo variant="icon" decorative />
 
           <div>
             <p className="text-3xl font-extrabold tracking-tight">
@@ -149,13 +147,7 @@ export default function AuthLayout({
               href="/"
               className="mb-8 flex items-center gap-3 lg:hidden"
             >
-              <div className="rounded-xl bg-emerald-700 p-3 text-white">
-                <MapPin size={25} />
-              </div>
-
-              <p className="text-3xl font-extrabold text-slate-900">
-                Thikana<span className="text-emerald-700">Hub</span>
-              </p>
+              <BrandLogo variant="full" priority />
             </Link>
 
             {children}

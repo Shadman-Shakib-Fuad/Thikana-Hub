@@ -1,11 +1,11 @@
 "use client";
+import BrandLogo from "@/components/branding/BrandLogo";
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import {
-  MapPin,
   LayoutDashboard,
   Database,
   Tags,
@@ -185,9 +185,7 @@ export default function DataManagerShell({
         ].join(" ")}
       >
         <div className="flex items-center gap-3 border-b border-slate-800 p-6">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600">
-            <MapPin className="h-6 w-6" />
-          </div>
+          <BrandLogo variant="icon" decorative />
 
           <div className="min-w-0 flex-1">
             <p className="text-xl font-bold tracking-tight">

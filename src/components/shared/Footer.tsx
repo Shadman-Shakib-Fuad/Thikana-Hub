@@ -1,6 +1,6 @@
+import BrandLogo from "@/components/branding/BrandLogo";
 import Link from "next/link";
 import {
-  MapPin,
   ShieldCheck,
   Globe2,
 } from "lucide-react";
@@ -18,9 +18,7 @@ export default function Footer() {
 
             <Link href="/" className="inline-flex items-center gap-3">
 
-              <div className="rounded-xl bg-emerald-600 p-3 text-white">
-                <MapPin size={23} />
-              </div>
+              <BrandLogo variant="icon" decorative />
 
               <span className="text-2xl font-extrabold text-white">
                 Thikana<span className="text-emerald-400">Hub</span>
